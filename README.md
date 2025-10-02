@@ -1,1 +1,3 @@
-# group12-project
+- Vai trò: Backend (Toàn)
+- Vai trò: Frontend (Thiên)
+- Vai trò: Database (Dũng)
