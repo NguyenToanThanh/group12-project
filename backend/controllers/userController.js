@@ -1,5 +1,5 @@
 // backend/controllers/userController.js
-const User = require('/Models/User');
+const User = require('../Models/User');   // chữ M viết hoa vì thư mục Models
 
 // GET /users  → lấy từ MongoDB
 exports.getUsers = async (req, res) => {
