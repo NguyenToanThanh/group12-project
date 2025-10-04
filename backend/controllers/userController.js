@@ -13,3 +13,19 @@ exports.createUser = (req, res) => {
   users.unshift(user);
   res.status(201).json(user);
 };
+
+exports.updateUser = (req, res) => {
+  const { id } = req.params;
+  const index = users.findIndex((u) => u.id == id);
+  if (index !== -1) {
+    users[index] = { ...users[index], ...req.body };
+    return res.json(users[index]);
+  }
+  res.status(404).json({ message: "User not found" });
+};
+
+exports.deleteUser = (req, res) => {
+  const { id } = req.params;
+  users = users.filter((u) => u.id != id);
+  res.json({ message: "User deleted" });
+};
