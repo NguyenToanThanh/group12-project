@@ -13,12 +13,16 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
-    avatarUrl: String,
-    avatarPublicId: String,
-    avatarFormat: String,
-    avatarBytes: Number,
-    avatarWidth: Number,
-    avatarHeight: Number,
+
+    // --- Avatar lưu từ Cloudinary ---
+    avatarUrl: { type: String, default: "" },        // link ảnh trên Cloudinary
+    avatarPublicId: { type: String, default: "" },   // id để xóa / cập nhật
+    avatarFormat: { type: String, default: "" },     // định dạng (jpg/png/webp)
+    avatarBytes: { type: Number, default: 0 },       // dung lượng ảnh (bytes)
+    avatarWidth: { type: Number, default: 0 },       // chiều rộng
+    avatarHeight: { type: Number, default: 0 },      // chiều cao
+
+    // --- Token đặt lại mật khẩu ---
     resetToken: String,
     resetTokenExp: Date,
   },

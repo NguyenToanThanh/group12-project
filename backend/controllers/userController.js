@@ -20,7 +20,7 @@ exports.signup = async (req, res) => {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hash,
-      role: role || "user",
+      role: role?.toLowerCase() || "user",
     });
 
     res.status(201).json({ id: user._id, email: user.email });
@@ -72,8 +72,7 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, avatarUrl, password, email, currentPassword } =
-      req.body || {};
+    const { name, avatarUrl, password, email, currentPassword } = req.body || {};
     const payload = {};
 
     if (typeof name === "string") payload.name = name.trim();
@@ -121,55 +120,34 @@ exports.updateProfile = async (req, res) => {
 };
 
 // ===== UPLOAD AVATAR =====
+
 exports.uploadAvatar = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "Chưa chọn ảnh" });
-
-    const uploaded = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: "group12/avatars",
-          resource_type: "image",
-        },
-        (err, result) => (err ? reject(err) : resolve(result))
-      );
-      stream.end(req.file.buffer);
-    });
-
-    const me = await User.findById(req.user.id);
-    if (me?.avatarPublicId) {
-      try {
-        await cloudinary.uploader.destroy(me.avatarPublicId);
-      } catch (e) {
-        console.warn("Không thể xoá ảnh cũ:", e.message);
-      }
+    if (!req.file) {
+      return res.status(400).json({ message: "Chưa chọn ảnh" });
     }
 
-    me.avatarUrl = uploaded.secure_url;
-    me.avatarPublicId = uploaded.public_id;
+    const userId = req.user.id;
+    const imagePath = `uploads/${req.file.filename}`;
 
-    me.avatarFormat = uploaded.format;
-    me.avatarBytes = uploaded.bytes;
-    me.avatarWidth = uploaded.width;
-    me.avatarHeight = uploaded.height;
-    await me.save();
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { avatarUrl: imagePath },
+      { new: true }
+    );
 
-    return res.json({
+    res.status(200).json({
       message: "Tải ảnh thành công",
-      url: me.avatarUrl,
-      publicId: me.avatarPublicId,
-      user: {
-        _id: me._id,
-        name: me.name,
-        email: me.email,
-        avatarUrl: me.avatarUrl,
-      },
+      avatar: imagePath,
+      user,
     });
   } catch (err) {
-    console.error("uploadAvatar error:", err);
+    console.error("Upload error:", err);
     res.status(500).json({ message: "Lỗi máy chủ khi tải ảnh" });
   }
 };
+
+
 
 exports.deleteAvatar = async (req, res) => {
   try {
@@ -194,7 +172,7 @@ exports.deleteAvatar = async (req, res) => {
   }
 };
 
-// ===== ADMIN =====
+// ===== ADMIN / RBAC =====
 exports.getUsers = async (_req, res) => {
   try {
     const users = await User.find().select("-password").sort({ createdAt: -1 });
@@ -220,14 +198,23 @@ exports.deleteUser = async (req, res) => {
 exports.updateUserRole = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.body || {};
+    let { role } = req.body || {};
+
+    console.log("updateUserRole - raw role:", role);
+
     if (!role) return res.status(400).json({ message: "Thiếu trường 'role'" });
-    if (!["user", "admin"].includes(role))
+
+    role = role.toString().trim().toLowerCase();
+    const valid = ["user", "admin", "moderator"];
+    if (!valid.includes(role))
       return res.status(400).json({ message: "Giá trị 'role' không hợp lệ" });
 
-    const u = await User.findByIdAndUpdate(id, { role }, { new: true }).select(
-      "-password"
-    );
+    const u = await User.findByIdAndUpdate(
+      id,
+      { role },
+      { new: true, runValidators: true }
+    ).select("-password");
+
     if (!u)
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
 
@@ -243,7 +230,6 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body || {};
     const u = await User.findOne({ email: email?.toLowerCase().trim() });
-    // Trả cùng 1 thông điệp để tránh dò email
     if (!u)
       return res.json({
         message: "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi",
@@ -282,6 +268,40 @@ exports.resetPassword = async (req, res) => {
     res.json({ message: "Password updated" });
   } catch (err) {
     console.error("resetPassword error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===== CREATE USER (SV3) =====
+exports.createUser = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email)
+      return res.status(400).json({ message: "Thiếu thông tin" });
+
+    const existed = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existed)
+      return res.status(409).json({ message: "Email đã tồn tại" });
+
+    const hash = await bcrypt.hash(password || "123456", 10);
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hash,
+      role: role?.toLowerCase() || "user",
+    });
+
+    res.status(201).json({
+      message: "Tạo user thành công",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("createUser error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
