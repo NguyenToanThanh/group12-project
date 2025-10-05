@@ -1,1 +1,1 @@
-Xin chào từ branch A
+Xin chào từ branch B
