@@ -8,3 +8,5 @@ Nguyen Thanh Toan - backend
 Doan Nhat Thien - frontend
 Trinh Minh Dung - Database
 Doan Nhat Thien - frontend
+
+# Cập nhật từ nhánh database
