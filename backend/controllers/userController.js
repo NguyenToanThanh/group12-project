@@ -1,58 +1,64 @@
-<<<<<<< HEAD
 // backend/controllers/userController.js
-const User = require('/Models/User');
+const User = require("../models/User");
 
-// GET /users  → lấy từ MongoDB
+// GET /users
 exports.getUsers = async (req, res) => {
-  const users = await User.find().sort({ createdAt: -1 });
-  res.json(users);
+  try {
+    const users = await User.find().sort({ createdAt: -1 });
+    res.json(users);
+  } catch (err) {
+    console.error("getUsers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
-// POST /users → lưu vào MongoDB
+// POST /users
 exports.createUser = async (req, res) => {
-  const { name, email } = req.body || {};
-  if (!name?.trim() || !email?.trim()) {
-    return res.status(400).json({ message: 'Name/Email is required' });
-  }
   try {
+    const { name, email } = req.body || {};
+    if (!name?.trim() || !email?.trim()) {
+      return res.status(400).json({ message: "name và email là bắt buộc" });
+    }
     const user = await User.create({ name, email });
     res.status(201).json(user);
-  } catch (e) {
-    if (e.code === 11000) { // duplicate email
-      return res.status(409).json({ message: 'Email đã tồn tại' });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "Email đã tồn tại" });
     }
-    res.status(500).json({ message: 'Server error' });
+    console.error("createUser error:", err);
+    res.status(500).json({ message: "Server error" });
   }
-=======
-let users = []; // mảng tạm nếu chưa dùng MongoDB
-
-exports.getUsers = (req, res) => {
-  res.json(users);
 };
 
-exports.createUser = (req, res) => {
-  const { name, email } = req.body || {};
-  if (!name?.trim() || !email?.trim()) {
-    return res.status(400).json({ message: "Name/Email is required" });
+// PUT /users/:id
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payload = {};
+    if (typeof req.body?.name === "string") payload.name = req.body.name;
+    if (typeof req.body?.email === "string") payload.email = req.body.email;
+
+    const user = await User.findByIdAndUpdate(id, payload, {
+      new: true,
+      runValidators: true,
+    });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    console.error("updateUser error:", err);
+    res.status(500).json({ message: "Server error" });
   }
-  const user = { id: Date.now().toString(), name, email };
-  users.unshift(user);
-  res.status(201).json(user);
 };
 
-exports.updateUser = (req, res) => {
-  const { id } = req.params;
-  const index = users.findIndex((u) => u.id == id);
-  if (index !== -1) {
-    users[index] = { ...users[index], ...req.body };
-    return res.json(users[index]);
+// DELETE /users/:id
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rs = await User.findByIdAndDelete(id);
+    if (!rs) return res.status(404).json({ message: "User not found" });
+    res.json({ message: "User deleted" });
+  } catch (err) {
+    console.error("deleteUser error:", err);
+    res.status(500).json({ message: "Server error" });
   }
-  res.status(404).json({ message: "User not found" });
-};
-
-exports.deleteUser = (req, res) => {
-  const { id } = req.params;
-  users = users.filter((u) => u.id != id);
-  res.json({ message: "User deleted" });
->>>>>>> 8b4701d470cc2192f38f68c68e1bf929b09a4edc
 };

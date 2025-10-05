@@ -1,28 +1,33 @@
-<<<<<<< HEAD
-// backend/server.js
-const express = require('express');
-const dotenv = require('dotenv'); dotenv.config();
-const mongoose = require('mongoose');
-
-const app = express();
-app.use(express.json());
-
-// 1) Kết nối MongoDB Atlas qua MONGODB_URI
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('Mongo error:', err));
-
-// 2) Đăng ký routes (như bạn đã làm ở HĐ3)
-const userRoutes = require('./routes/user');
-=======
 const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+require("dotenv").config();
+
 const app = express();
 
+// Middlewares
+app.use(cors());
 app.use(express.json());
 
+// Routes
 const userRoutes = require("./routes/user");
->>>>>>> 8b4701d470cc2192f38f68c68e1bf929b09a4edc
-app.use(userRoutes);
+app.use(userRoutes); // /users, /users/:id
 
+// DB connect
+const MONGO_URI = process.env.MONGO_URI; // đảm bảo trùng tên biến trong .env
+if (!MONGO_URI) {
+  console.error("Missing MONGO_URI in .env");
+  process.exit(1);
+}
+
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  });
+
+// Start
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

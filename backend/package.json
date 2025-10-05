@@ -12,13 +12,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-<<<<<<< HEAD
     "express": "^5.1.0",
-    "mongoose": "^8.18.3"
-=======
-    "express": "^5.1.0"
->>>>>>> 8b4701d470cc2192f38f68c68e1bf929b09a4edc
+    "mongoose": "^8.19.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
