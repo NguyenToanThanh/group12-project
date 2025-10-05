@@ -1,3 +1,4 @@
+// backend/server.js
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -14,12 +15,11 @@ const userRoutes = require("./routes/user");
 app.use(userRoutes); // /users, /users/:id
 
 // DB connect
-const MONGO_URI = process.env.MONGO_URI; // đảm bảo trùng tên biến trong .env
+const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
   console.error("Missing MONGO_URI in .env");
   process.exit(1);
 }
-
 mongoose
   .connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))

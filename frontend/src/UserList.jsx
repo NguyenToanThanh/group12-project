@@ -19,24 +19,31 @@ function UserList() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Xóa user này?")) return;
+    if (!window.confirm("Xoá user này?")) return;
     try {
       await api.delete(`/users/${id}`);
       setUsers((prev) => prev.filter((u) => u._id !== id));
     } catch (err) {
       console.error(err);
-      alert("Xóa không thành công");
+      alert("Không thể xoá user");
     }
   };
 
   return (
     <div>
       <h2>Danh sách Users</h2>
-      <ul>
+      <ul
+        style={{ display: "flex", flexDirection: "column", gap: 8, padding: 0 }}
+      >
         {users.map((u) => (
           <li
             key={u._id}
-            style={{ display: "flex", gap: 8, alignItems: "center" }}
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              listStyle: "none",
+            }}
           >
             <span>
               {u.name} — {u.email}

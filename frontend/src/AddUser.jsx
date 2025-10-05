@@ -24,7 +24,7 @@ function AddUser({ onUserAdded }) {
       setEmail("");
       onUserAdded?.(); // refresh danh sách
     } catch (err) {
-      console.error("Lỗi khi thêm user:", err);
+      console.error(err);
       alert(err?.response?.data?.message || "Không thể thêm user");
     }
   };
