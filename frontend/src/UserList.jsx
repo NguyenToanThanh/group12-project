@@ -1,21 +1,48 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "./api";
 
 function UserList() {
   const [users, setUsers] = useState([]);
 
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get("/users");
+      setUsers(res.data);
+    } catch (err) {
+      console.error(err);
+      alert("Không thể lấy danh sách users");
+    }
+  };
+
   useEffect(() => {
-    axios.get("http://localhost:3000/users")
-      .then(res => setUsers(res.data))
-      .catch(err => console.error(err));
+    fetchUsers();
   }, []);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Xóa user này?")) return;
+    try {
+      await api.delete(`/users/${id}`);
+      setUsers((prev) => prev.filter((u) => u._id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Xóa không thành công");
+    }
+  };
 
   return (
     <div>
       <h2>Danh sách Users</h2>
       <ul>
-        {users.map((u, i) => (
-          <li key={i}>{u.name}</li>
+        {users.map((u) => (
+          <li
+            key={u._id}
+            style={{ display: "flex", gap: 8, alignItems: "center" }}
+          >
+            <span>
+              {u.name} — {u.email}
+            </span>
+            <button onClick={() => handleDelete(u._id)}>Xóa</button>
+          </li>
         ))}
       </ul>
     </div>
