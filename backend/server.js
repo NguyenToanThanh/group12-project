@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // backend/server.js
 const express = require('express');
 const dotenv = require('dotenv'); dotenv.config();
@@ -13,6 +14,14 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // 2) Đăng ký routes (như bạn đã làm ở HĐ3)
 const userRoutes = require('./routes/user');
+=======
+const express = require("express");
+const app = express();
+
+app.use(express.json());
+
+const userRoutes = require("./routes/user");
+>>>>>>> 8b4701d470cc2192f38f68c68e1bf929b09a4edc
 app.use(userRoutes);
 
 const PORT = process.env.PORT || 3000;
