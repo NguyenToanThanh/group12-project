@@ -1,11 +1,9 @@
 # DỰ ÁN NHÓM 12 – HOẠT ĐỘNG 10
 
-### Môn: Phát triển phần mềm mã nguồn mở
-
-### Chủ đề: Kết hợp Frontend và Backend – Quản lý người dùng
 
 
-## 1. MÔ TẢ DỰ ÁN
+---
+
 
 Dự án này là sản phẩm của **Hoạt động 10**, nhằm thực hành kỹ năng:
 
@@ -14,16 +12,14 @@ Dự án này là sản phẩm của **Hoạt động 10**, nhằm thực hành 
 - Kết nối giao diện React với API Express thông qua **Axios**.
 - Triển khai ứng dụng CRUD đơn giản (Create – Read – Delete) với MongoDB Atlas.
 
-### 🧩 **Chức năng chính**
+
 - Thêm người dùng mới (tên + email)
 - Xem danh sách người dùng
 - Xóa người dùng khỏi danh sách
 - Lưu dữ liệu lên MongoDB Atlas
 
+---
 
-## 2. CÔNG NGHỆ SỬ DỤNG
-
-### 🔹 Backend
 
 | Thành phần     | Mô tả                                       |
 | -------------- | ------------------------------------------- |
@@ -33,7 +29,7 @@ Dự án này là sản phẩm của **Hoạt động 10**, nhằm thực hành 
 | **dotenv**     | Quản lý biến môi trường (.env)              |
 | **CORS**       | Cho phép giao tiếp giữa frontend và backend |
 
-### 🔹 Frontend
+
 
 | Thành phần                | Mô tả                                  |
 | ------------------------- | -------------------------------------- |
@@ -42,5 +38,41 @@ Dự án này là sản phẩm của **Hoạt động 10**, nhằm thực hành 
 | **Vite / React Scripts**  | Công cụ build và chạy React            |
 | **HTML / CSS / JS (ES6)** | Ngôn ngữ nền tảng của giao diện        |
 
+---
 
-## 3. CẤU TRÚC DỰ ÁN
+
+
+---
+
+
+
+| Họ tên             | Vai trò     | Công việc chính |
+|--------------------|--------------|-----------------|
+| **Nguyễn Thành Toàn** | Backend  | Xây dựng API người dùng, xử lý CRUD |
+| **Đoàn Nhật Thiên**    | Frontend | Thiết kế giao diện React, kết nối API |
+| **Trịnh Minh Dũng**    | Database | Cấu hình MongoDB Atlas, Model `User.js` |
+
+---
+
+
+
+- Xây dựng các API CRUD người dùng (`/api/users`).
+- Kết nối MongoDB qua `mongoose`.
+- Tạo và cấu hình `server.js`, `userController.js`, `userRoutes.js`.
+
+
+- Tạo giao diện React.
+- Gọi API backend bằng `Axios`.
+- Hiển thị danh sách người dùng và xử lý thêm / xóa.
+
+
+- Tạo model `User.js` gồm: `username`, `email`, `password`, `role`.
+- Lưu dữ liệu trên MongoDB Atlas.
+- Kiểm tra thao tác thêm / xóa / đọc dữ liệu.
+
+---
+
+
+- Kết nối thành công giữa **Frontend – Backend – Database**.
+- CRUD hoạt động tốt trên MongoDB Atlas.
+- Hoàn thiện quy trình **Git Workflow**, merge code nhóm thành công.
