@@ -1,10 +1,18 @@
+// backend/routes/user.js
 const express = require("express");
 const router = express.Router();
-const userController = require("../controllers/userController");
+const { auth, adminOnly } = require("../middlewares/auth");
+const {
+  getProfile, updateProfile,
+  getUsers, deleteUser
+} = require("../controllers/userController");
 
-router.get("/users", userController.getUsers);
-router.post("/users", userController.createUser);
-router.put("/users/:id", userController.updateUser);
-router.delete("/users/:id", userController.deleteUser);
+// Profile cá nhân
+router.get("/profile", auth, getProfile);
+router.put("/profile", auth, updateProfile);
+
+// Quản trị
+router.get("/users", auth, adminOnly, getUsers);
+router.delete("/users/:id", auth, adminOnly, deleteUser);
 
 module.exports = router;
