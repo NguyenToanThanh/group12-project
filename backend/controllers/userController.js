@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../Models/User");
+const cloudinary = require("../utils/cloudinary");
 
 // ===== AUTH =====
 exports.signup = async (req, res) => {
@@ -11,7 +12,8 @@ exports.signup = async (req, res) => {
       return res.status(400).json({ message: "Missing fields" });
 
     const existed = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existed) return res.status(409).json({ message: "Email already exists" });
+    if (existed)
+      return res.status(409).json({ message: "Email already exists" });
 
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
@@ -70,49 +72,125 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, avatarUrl, password, email, currentPassword } = req.body || {};
+    const { name, avatarUrl, password, email, currentPassword } =
+      req.body || {};
     const payload = {};
 
     if (typeof name === "string") payload.name = name.trim();
     if (typeof avatarUrl === "string") payload.avatarUrl = avatarUrl.trim();
 
-    // Nếu muốn đổi password hoặc email -> yêu cầu currentPassword để xác thực
     if ((password || email) && !currentPassword) {
       return res.status(400).json({ message: "currentPassword is required" });
     }
 
-    // Xác thực currentPassword (nếu gửi)
     if (currentPassword) {
       const me = await User.findById(req.user.id);
       if (!me) return res.status(404).json({ message: "User not found" });
       const ok = await bcrypt.compare(currentPassword, me.password);
-      if (!ok) return res.status(401).json({ message: "Current password incorrect" });
+      if (!ok)
+        return res.status(401).json({ message: "Current password incorrect" });
     }
 
-    // Đổi password
     if (typeof password === "string" && password) {
       payload.password = await bcrypt.hash(password, 10);
     }
 
-    // Đổi email
     if (typeof email === "string" && email.trim()) {
       const newEmail = email.trim().toLowerCase();
-      const exists = await User.exists({ email: newEmail, _id: { $ne: req.user.id } });
-      if (exists) return res.status(409).json({ message: "Email already in use" });
+      const exists = await User.exists({
+        email: newEmail,
+        _id: { $ne: req.user.id },
+      });
+      if (exists)
+        return res.status(409).json({ message: "Email already in use" });
       payload.email = newEmail;
     }
 
-    const u = await User.findByIdAndUpdate(req.user.id, payload, { new: true })
-      .select("-password");
+    const u = await User.findByIdAndUpdate(req.user.id, payload, {
+      new: true,
+    }).select("-password");
     if (!u) return res.status(404).json({ message: "User not found" });
     res.json(u);
   } catch (err) {
-    // Unique email error
     if (err?.code === 11000 && err?.keyPattern?.email) {
       return res.status(409).json({ message: "Email already in use" });
     }
     console.error("updateProfile error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===== UPLOAD AVATAR =====
+exports.uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Chưa chọn ảnh" });
+
+    const uploaded = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "group12/avatars",
+          resource_type: "image",
+        },
+        (err, result) => (err ? reject(err) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    const me = await User.findById(req.user.id);
+    if (me?.avatarPublicId) {
+      try {
+        await cloudinary.uploader.destroy(me.avatarPublicId);
+      } catch (e) {
+        console.warn("Không thể xoá ảnh cũ:", e.message);
+      }
+    }
+
+    me.avatarUrl = uploaded.secure_url;
+    me.avatarPublicId = uploaded.public_id;
+
+    me.avatarFormat = uploaded.format;
+    me.avatarBytes = uploaded.bytes;
+    me.avatarWidth = uploaded.width;
+    me.avatarHeight = uploaded.height;
+    await me.save();
+
+    return res.json({
+      message: "Tải ảnh thành công",
+      url: me.avatarUrl,
+      publicId: me.avatarPublicId,
+      user: {
+        _id: me._id,
+        name: me.name,
+        email: me.email,
+        avatarUrl: me.avatarUrl,
+      },
+    });
+  } catch (err) {
+    console.error("uploadAvatar error:", err);
+    res.status(500).json({ message: "Lỗi máy chủ khi tải ảnh" });
+  }
+};
+
+exports.deleteAvatar = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id);
+    if (!me) return res.status(404).json({ message: "User not found" });
+
+    if (me.avatarPublicId) {
+      await cloudinary.uploader.destroy(me.avatarPublicId);
+    }
+    me.avatarUrl = undefined;
+    me.avatarPublicId = undefined;
+    me.avatarFormat = undefined;
+    me.avatarBytes = undefined;
+    me.avatarWidth = undefined;
+    me.avatarHeight = undefined;
+    await me.save();
+
+    res.json({ message: "Đã xoá avatar", userId: me._id });
+  } catch (err) {
+    console.error("deleteAvatar error:", err);
+    res.status(500).json({ message: "Lỗi máy chủ khi xoá ảnh" });
   }
 };
 
@@ -139,20 +217,43 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body || {};
+    if (!role) return res.status(400).json({ message: "Thiếu trường 'role'" });
+    if (!["user", "admin"].includes(role))
+      return res.status(400).json({ message: "Giá trị 'role' không hợp lệ" });
+
+    const u = await User.findByIdAndUpdate(id, { role }, { new: true }).select(
+      "-password"
+    );
+    if (!u)
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    res.json({ message: "Cập nhật quyền thành công", user: u });
+  } catch (err) {
+    console.error("updateUserRole error:", err);
+    res.status(500).json({ message: "Lỗi máy chủ, vui lòng thử lại sau" });
+  }
+};
+
 // ===== FORGOT / RESET PASSWORD =====
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body || {};
     const u = await User.findOne({ email: email?.toLowerCase().trim() });
-    // Để an toàn: luôn trả message giống nhau
-    if (!u) return res.json({ message: "If email exists, a reset link was sent" });
+    // Trả cùng 1 thông điệp để tránh dò email
+    if (!u)
+      return res.json({
+        message: "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi",
+      });
 
     const token = crypto.randomBytes(20).toString("hex");
     u.resetToken = token;
     u.resetTokenExp = new Date(Date.now() + 1000 * 60 * 30);
     await u.save();
 
- 
     res.json({ message: "Reset token generated", token });
   } catch (err) {
     console.error("forgotPassword error:", err);
@@ -170,7 +271,8 @@ exports.resetPassword = async (req, res) => {
       resetToken: token,
       resetTokenExp: { $gt: new Date() },
     });
-    if (!u) return res.status(400).json({ message: "Token invalid or expired" });
+    if (!u)
+      return res.status(400).json({ message: "Token invalid or expired" });
 
     u.password = await bcrypt.hash(password, 10);
     u.resetToken = undefined;

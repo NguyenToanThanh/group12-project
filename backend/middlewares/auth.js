@@ -1,4 +1,3 @@
-// backend/middlewares/auth.js
 const jwt = require("jsonwebtoken");
 
 exports.auth = (req, res, next) => {
@@ -13,7 +12,8 @@ exports.auth = (req, res, next) => {
 };
 
 exports.adminOnly = (req, res, next) => {
-  if (req.user?.role !== "admin")
+  if (req.user?.role !== "admin") {
     return res.status(403).json({ message: "Forbidden" });
+  }
   next();
 };

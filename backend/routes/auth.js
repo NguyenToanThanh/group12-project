@@ -1,9 +1,11 @@
-// backend/routes/auth.js
 const express = require("express");
 const router = express.Router();
 const {
-  signup, login, logout,
-  forgotPassword, resetPassword
+  signup,
+  login,
+  logout,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/userController");
 
 router.post("/signup", signup);

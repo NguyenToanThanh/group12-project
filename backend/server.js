@@ -1,4 +1,3 @@
-// backend/server.js
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -30,7 +29,6 @@ mongoose
     app.use("/api", require("./routes/user"));
 
     app.get("/", (_req, res) => res.send("User Management API"));
-
     const PORT = process.env.PORT || 4000;
     app.listen(PORT, () => console.log(`API running on :${PORT}`));
   })
