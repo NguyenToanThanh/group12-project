@@ -1,10 +1,203 @@
-// backend/controllers/userController.js
-const User = require("../Models/User"); // Chú ý "Models" viết hoa
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const User = require("../Models/User");
+const cloudinary = require("../utils/cloudinary");
 
-// GET /users
-exports.getUsers = async (req, res) => {
+// ===== AUTH =====
+exports.signup = async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const { name, email, password, role } = req.body || {};
+    if (!name || !email || !password)
+      return res.status(400).json({ message: "Missing fields" });
+
+    const existed = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existed)
+      return res.status(409).json({ message: "Email already exists" });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hash,
+      role: role || "user",
+    });
+
+    res.status(201).json({ id: user._id, email: user.email });
+  } catch (err) {
+    console.error("signup error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password)
+      return res.status(400).json({ message: "Missing fields" });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES || "7d" }
+    );
+
+    res.json({ token });
+  } catch (err) {
+    console.error("login error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+exports.logout = async (_req, res) =>
+  res.json({ message: "Client remove token" });
+
+// ===== PROFILE =====
+exports.getProfile = async (req, res) => {
+  try {
+    const u = await User.findById(req.user.id).select("-password");
+    if (!u) return res.status(404).json({ message: "User not found" });
+    res.json(u);
+  } catch (err) {
+    console.error("getProfile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, avatarUrl, password, email, currentPassword } =
+      req.body || {};
+    const payload = {};
+
+    if (typeof name === "string") payload.name = name.trim();
+    if (typeof avatarUrl === "string") payload.avatarUrl = avatarUrl.trim();
+
+    if ((password || email) && !currentPassword) {
+      return res.status(400).json({ message: "currentPassword is required" });
+    }
+
+    if (currentPassword) {
+      const me = await User.findById(req.user.id);
+      if (!me) return res.status(404).json({ message: "User not found" });
+      const ok = await bcrypt.compare(currentPassword, me.password);
+      if (!ok)
+        return res.status(401).json({ message: "Current password incorrect" });
+    }
+
+    if (typeof password === "string" && password) {
+      payload.password = await bcrypt.hash(password, 10);
+    }
+
+    if (typeof email === "string" && email.trim()) {
+      const newEmail = email.trim().toLowerCase();
+      const exists = await User.exists({
+        email: newEmail,
+        _id: { $ne: req.user.id },
+      });
+      if (exists)
+        return res.status(409).json({ message: "Email already in use" });
+      payload.email = newEmail;
+    }
+
+    const u = await User.findByIdAndUpdate(req.user.id, payload, {
+      new: true,
+    }).select("-password");
+    if (!u) return res.status(404).json({ message: "User not found" });
+    res.json(u);
+  } catch (err) {
+    if (err?.code === 11000 && err?.keyPattern?.email) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+    console.error("updateProfile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===== UPLOAD AVATAR =====
+exports.uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Chưa chọn ảnh" });
+
+    const uploaded = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "group12/avatars",
+          resource_type: "image",
+        },
+        (err, result) => (err ? reject(err) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    const me = await User.findById(req.user.id);
+    if (me?.avatarPublicId) {
+      try {
+        await cloudinary.uploader.destroy(me.avatarPublicId);
+      } catch (e) {
+        console.warn("Không thể xoá ảnh cũ:", e.message);
+      }
+    }
+
+    me.avatarUrl = uploaded.secure_url;
+    me.avatarPublicId = uploaded.public_id;
+
+    me.avatarFormat = uploaded.format;
+    me.avatarBytes = uploaded.bytes;
+    me.avatarWidth = uploaded.width;
+    me.avatarHeight = uploaded.height;
+    await me.save();
+
+    return res.json({
+      message: "Tải ảnh thành công",
+      url: me.avatarUrl,
+      publicId: me.avatarPublicId,
+      user: {
+        _id: me._id,
+        name: me.name,
+        email: me.email,
+        avatarUrl: me.avatarUrl,
+      },
+    });
+  } catch (err) {
+    console.error("uploadAvatar error:", err);
+    res.status(500).json({ message: "Lỗi máy chủ khi tải ảnh" });
+  }
+};
+
+exports.deleteAvatar = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id);
+    if (!me) return res.status(404).json({ message: "User not found" });
+
+    if (me.avatarPublicId) {
+      await cloudinary.uploader.destroy(me.avatarPublicId);
+    }
+    me.avatarUrl = undefined;
+    me.avatarPublicId = undefined;
+    me.avatarFormat = undefined;
+    me.avatarBytes = undefined;
+    me.avatarWidth = undefined;
+    me.avatarHeight = undefined;
+    await me.save();
+
+    res.json({ message: "Đã xoá avatar", userId: me._id });
+  } catch (err) {
+    console.error("deleteAvatar error:", err);
+    res.status(500).json({ message: "Lỗi máy chủ khi xoá ảnh" });
+  }
+};
+
+// ===== ADMIN =====
+exports.getUsers = async (_req, res) => {
+  try {
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     console.error("getUsers error:", err);
@@ -12,49 +205,6 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// POST /users
-exports.createUser = async (req, res) => {
-  try {
-    const { name, email } = req.body || {};
-    if (!name?.trim() || !email?.trim()) {
-      return res.status(400).json({ message: "name và email là bắt buộc" });
-    }
-    const user = await User.create({ name: name.trim(), email: email.trim() });
-    res.status(201).json(user);
-  } catch (err) {
-    if (err?.code === 11000) {
-      return res.status(409).json({ message: "Email đã tồn tại" });
-    }
-    console.error("createUser error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// PUT /users/:id
-exports.updateUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const payload = {};
-    if (typeof req.body?.name === "string") payload.name = req.body.name.trim();
-    if (typeof req.body?.email === "string")
-      payload.email = req.body.email.trim();
-
-    const user = await User.findByIdAndUpdate(id, payload, {
-      new: true,
-      runValidators: true,
-    });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
-  } catch (err) {
-    if (err?.code === 11000) {
-      return res.status(409).json({ message: "Email đã tồn tại" });
-    }
-    console.error("updateUser error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// DELETE /users/:id
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -63,6 +213,75 @@ exports.deleteUser = async (req, res) => {
     res.json({ message: "User deleted" });
   } catch (err) {
     console.error("deleteUser error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body || {};
+    if (!role) return res.status(400).json({ message: "Thiếu trường 'role'" });
+    if (!["user", "admin"].includes(role))
+      return res.status(400).json({ message: "Giá trị 'role' không hợp lệ" });
+
+    const u = await User.findByIdAndUpdate(id, { role }, { new: true }).select(
+      "-password"
+    );
+    if (!u)
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    res.json({ message: "Cập nhật quyền thành công", user: u });
+  } catch (err) {
+    console.error("updateUserRole error:", err);
+    res.status(500).json({ message: "Lỗi máy chủ, vui lòng thử lại sau" });
+  }
+};
+
+// ===== FORGOT / RESET PASSWORD =====
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const u = await User.findOne({ email: email?.toLowerCase().trim() });
+    // Trả cùng 1 thông điệp để tránh dò email
+    if (!u)
+      return res.json({
+        message: "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi",
+      });
+
+    const token = crypto.randomBytes(20).toString("hex");
+    u.resetToken = token;
+    u.resetTokenExp = new Date(Date.now() + 1000 * 60 * 30);
+    await u.save();
+
+    res.json({ message: "Reset token generated", token });
+  } catch (err) {
+    console.error("forgotPassword error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ message: "Missing password" });
+
+    const u = await User.findOne({
+      resetToken: token,
+      resetTokenExp: { $gt: new Date() },
+    });
+    if (!u)
+      return res.status(400).json({ message: "Token invalid or expired" });
+
+    u.password = await bcrypt.hash(password, 10);
+    u.resetToken = undefined;
+    u.resetTokenExp = undefined;
+    await u.save();
+
+    res.json({ message: "Password updated" });
+  } catch (err) {
+    console.error("resetPassword error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

@@ -1,14 +1,7 @@
-<<<<<<< HEAD
-backend/.env
-frontend/.env
-backend/node_modules/
-frontend/node_modules/
-=======
 backend/node_modules/
 frontend/node_modules/
 backend/.env
 frontend/.env
->>>>>>> b7295b5 (chore: ignore node_modules và .env)
 backend/node_modules/
 frontend/node_modules/
 backend/.env
