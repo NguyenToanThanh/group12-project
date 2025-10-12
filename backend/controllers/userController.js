@@ -1,58 +1,55 @@
-<<<<<<< HEAD
 // backend/controllers/userController.js
-const User = require('/Models/User');
+const User = require("../Models/User");
 
-// GET /users  → lấy từ MongoDB
+// Lấy danh sách người dùng (GET /users)
 exports.getUsers = async (req, res) => {
-  const users = await User.find().sort({ createdAt: -1 });
-  res.json(users);
-};
-
-// POST /users → lưu vào MongoDB
-exports.createUser = async (req, res) => {
-  const { name, email } = req.body || {};
-  if (!name?.trim() || !email?.trim()) {
-    return res.status(400).json({ message: 'Name/Email is required' });
-  }
   try {
-    const user = await User.create({ name, email });
-    res.status(201).json(user);
-  } catch (e) {
-    if (e.code === 11000) { // duplicate email
-      return res.status(409).json({ message: 'Email đã tồn tại' });
-    }
-    res.status(500).json({ message: 'Server error' });
+    const users = await User.find().sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server khi lấy danh sách người dùng" });
   }
-=======
-let users = []; // mảng tạm nếu chưa dùng MongoDB
-
-exports.getUsers = (req, res) => {
-  res.json(users);
 };
 
-exports.createUser = (req, res) => {
+// Tạo người dùng mới (POST /users)
+exports.createUser = async (req, res) => {
   const { name, email } = req.body || {};
   if (!name?.trim() || !email?.trim()) {
     return res.status(400).json({ message: "Name/Email is required" });
   }
-  const user = { id: Date.now().toString(), name, email };
-  users.unshift(user);
-  res.status(201).json(user);
-};
 
-exports.updateUser = (req, res) => {
-  const { id } = req.params;
-  const index = users.findIndex((u) => u.id == id);
-  if (index !== -1) {
-    users[index] = { ...users[index], ...req.body };
-    return res.json(users[index]);
+  try {
+    const user = await User.create({ name, email });
+    res.status(201).json(user);
+  } catch (error) {
+    if (error.code === 11000) {
+      // Trùng email
+      return res.status(409).json({ message: "Email đã tồn tại" });
+    }
+    res.status(500).json({ message: "Lỗi server khi tạo người dùng" });
   }
-  res.status(404).json({ message: "User not found" });
 };
 
-exports.deleteUser = (req, res) => {
-  const { id } = req.params;
-  users = users.filter((u) => u.id != id);
-  res.json({ message: "User deleted" });
->>>>>>> 8b4701d470cc2192f38f68c68e1bf929b09a4edc
+// Cập nhật người dùng (PUT /users/:id)
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedUser = await User.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server khi cập nhật người dùng" });
+  }
+};
+
+// Xóa người dùng (DELETE /users/:id)
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedUser = await User.findByIdAndDelete(id);
+    if (!deletedUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    res.json({ message: "User deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server khi xóa người dùng" });
+  }
 };
