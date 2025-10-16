@@ -1,287 +1,132 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const User = require("../Models/User");
-const cloudinary = require("../utils/cloudinary");
 
-// ===== AUTH =====
+const User = require("../Models/User");
+const { signAccess, signRefresh } = require("../utils/jwt");
+
+/* ========== AUTH ========== */
+
+// POST /auth/signup
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body || {};
+    const { name, email, password } = req.body;
     if (!name || !email || !password)
-      return res.status(400).json({ message: "Missing fields" });
+      return res.status(400).json({ message: "Missing required fields" });
 
-    const existed = await User.findOne({ email: email.toLowerCase().trim() });
+    const existed = await User.findOne({ email });
     if (existed)
-      return res.status(409).json({ message: "Email already exists" });
+      return res.status(400).json({ message: "Email already exists" });
 
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password: hash,
-      role: role || "user",
-    });
-
+    const user = await User.create({ name, email, password });
     res.status(201).json({ id: user._id, email: user.email });
   } catch (err) {
     console.error("signup error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
+// POST /auth/login
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { email, password } = req.body;
     if (!email || !password)
-      return res.status(400).json({ message: "Missing fields" });
+      return res.status(400).json({ message: "Missing email or password" });
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({ email }).select("+password");
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES || "7d" }
-    );
+    // Generate tokens
+    const accessToken = signAccess({ id: user._id, role: user.role });
+    const refreshToken = signRefresh({ id: user._id });
 
-    res.json({ token });
+    // Store refresh token in database
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      },
+      accessToken,
+      refreshToken,
+    });
   } catch (err) {
     console.error("login error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-};
-
-exports.logout = async (_req, res) =>
-  res.json({ message: "Client remove token" });
-
-// ===== PROFILE =====
-exports.getProfile = async (req, res) => {
-  try {
-    const u = await User.findById(req.user.id).select("-password");
-    if (!u) return res.status(404).json({ message: "User not found" });
-    res.json(u);
-  } catch (err) {
-    console.error("getProfile error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.updateProfile = async (req, res) => {
+// POST /auth/refresh
+exports.refresh = async (req, res) => {
   try {
-    const { name, avatarUrl, password, email, currentPassword } =
-      req.body || {};
-    const payload = {};
+    const { refreshToken } = req.body;
+    if (!refreshToken)
+      return res.status(400).json({ message: "Missing refreshToken" });
 
-    if (typeof name === "string") payload.name = name.trim();
-    if (typeof avatarUrl === "string") payload.avatarUrl = avatarUrl.trim();
-
-    if ((password || email) && !currentPassword) {
-      return res.status(400).json({ message: "currentPassword is required" });
+    // Verify refresh token
+    let payload;
+    try {
+      payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    } catch {
+      return res
+        .status(401)
+        .json({ message: "Invalid or expired refresh token" });
     }
 
-    if (currentPassword) {
-      const me = await User.findById(req.user.id);
-      if (!me) return res.status(404).json({ message: "User not found" });
-      const ok = await bcrypt.compare(currentPassword, me.password);
-      if (!ok)
-        return res.status(401).json({ message: "Current password incorrect" });
-    }
+    // Find user and check if refresh token matches
+    const user = await User.findById(payload.id);
+    if (!user || user.refreshToken !== refreshToken)
+      return res.status(401).json({ message: "Refresh token revoked" });
 
-    if (typeof password === "string" && password) {
-      payload.password = await bcrypt.hash(password, 10);
-    }
+    // Generate new access token
+    const accessToken = signAccess({ id: user._id, role: user.role });
 
-    if (typeof email === "string" && email.trim()) {
-      const newEmail = email.trim().toLowerCase();
-      const exists = await User.exists({
-        email: newEmail,
-        _id: { $ne: req.user.id },
-      });
-      if (exists)
-        return res.status(409).json({ message: "Email already in use" });
-      payload.email = newEmail;
-    }
+    // Optionally rotate refresh token
+    const newRefreshToken = signRefresh({ id: user._id });
+    user.refreshToken = newRefreshToken;
+    await user.save();
 
-    const u = await User.findByIdAndUpdate(req.user.id, payload, {
-      new: true,
-    }).select("-password");
-    if (!u) return res.status(404).json({ message: "User not found" });
-    res.json(u);
+    res.json({ accessToken, refreshToken: newRefreshToken });
   } catch (err) {
-    if (err?.code === 11000 && err?.keyPattern?.email) {
-      return res.status(409).json({ message: "Email already in use" });
-    }
-    console.error("updateProfile error:", err);
+    console.error("refresh error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// ===== UPLOAD AVATAR =====
-exports.uploadAvatar = async (req, res) => {
+// POST /auth/logout
+exports.logout = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "Chưa chọn ảnh" });
-
-    const uploaded = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: "group12/avatars",
-          resource_type: "image",
-        },
-        (err, result) => (err ? reject(err) : resolve(result))
-      );
-      stream.end(req.file.buffer);
-    });
-
-    const me = await User.findById(req.user.id);
-    if (me?.avatarPublicId) {
-      try {
-        await cloudinary.uploader.destroy(me.avatarPublicId);
-      } catch (e) {
-        console.warn("Không thể xoá ảnh cũ:", e.message);
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      const user = await User.findOne({ refreshToken });
+      if (user) {
+        user.refreshToken = undefined; // revoke refresh token
+        await user.save();
       }
     }
-
-    me.avatarUrl = uploaded.secure_url;
-    me.avatarPublicId = uploaded.public_id;
-
-    me.avatarFormat = uploaded.format;
-    me.avatarBytes = uploaded.bytes;
-    me.avatarWidth = uploaded.width;
-    me.avatarHeight = uploaded.height;
-    await me.save();
-
-    return res.json({
-      message: "Tải ảnh thành công",
-      url: me.avatarUrl,
-      publicId: me.avatarPublicId,
-      user: {
-        _id: me._id,
-        name: me.name,
-        email: me.email,
-        avatarUrl: me.avatarUrl,
-      },
-    });
+    res.json({ message: "Logged out successfully" });
   } catch (err) {
-    console.error("uploadAvatar error:", err);
-    res.status(500).json({ message: "Lỗi máy chủ khi tải ảnh" });
-  }
-};
-
-exports.deleteAvatar = async (req, res) => {
-  try {
-    const me = await User.findById(req.user.id);
-    if (!me) return res.status(404).json({ message: "User not found" });
-
-    if (me.avatarPublicId) {
-      await cloudinary.uploader.destroy(me.avatarPublicId);
-    }
-    me.avatarUrl = undefined;
-    me.avatarPublicId = undefined;
-    me.avatarFormat = undefined;
-    me.avatarBytes = undefined;
-    me.avatarWidth = undefined;
-    me.avatarHeight = undefined;
-    await me.save();
-
-    res.json({ message: "Đã xoá avatar", userId: me._id });
-  } catch (err) {
-    console.error("deleteAvatar error:", err);
-    res.status(500).json({ message: "Lỗi máy chủ khi xoá ảnh" });
-  }
-};
-
-// ===== ADMIN =====
-exports.getUsers = async (_req, res) => {
-  try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
-    res.json(users);
-  } catch (err) {
-    console.error("getUsers error:", err);
+    console.error("logout error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.deleteUser = async (req, res) => {
+/* ========== PROFILE ========== */
+
+// GET /users/profile
+exports.getProfile = async (req, res) => {
   try {
-    const { id } = req.params;
-    const rs = await User.findByIdAndDelete(id);
-    if (!rs) return res.status(404).json({ message: "User not found" });
-    res.json({ message: "User deleted" });
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
   } catch (err) {
-    console.error("deleteUser error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-exports.updateUserRole = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role } = req.body || {};
-    if (!role) return res.status(400).json({ message: "Thiếu trường 'role'" });
-    if (!["user", "admin"].includes(role))
-      return res.status(400).json({ message: "Giá trị 'role' không hợp lệ" });
-
-    const u = await User.findByIdAndUpdate(id, { role }, { new: true }).select(
-      "-password"
-    );
-    if (!u)
-      return res.status(404).json({ message: "Không tìm thấy người dùng" });
-
-    res.json({ message: "Cập nhật quyền thành công", user: u });
-  } catch (err) {
-    console.error("updateUserRole error:", err);
-    res.status(500).json({ message: "Lỗi máy chủ, vui lòng thử lại sau" });
-  }
-};
-
-// ===== FORGOT / RESET PASSWORD =====
-exports.forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body || {};
-    const u = await User.findOne({ email: email?.toLowerCase().trim() });
-    // Trả cùng 1 thông điệp để tránh dò email
-    if (!u)
-      return res.json({
-        message: "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi",
-      });
-
-    const token = crypto.randomBytes(20).toString("hex");
-    u.resetToken = token;
-    u.resetTokenExp = new Date(Date.now() + 1000 * 60 * 30);
-    await u.save();
-
-    res.json({ message: "Reset token generated", token });
-  } catch (err) {
-    console.error("forgotPassword error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-exports.resetPassword = async (req, res) => {
-  try {
-    const { token } = req.params;
-    const { password } = req.body || {};
-    if (!password) return res.status(400).json({ message: "Missing password" });
-
-    const u = await User.findOne({
-      resetToken: token,
-      resetTokenExp: { $gt: new Date() },
-    });
-    if (!u)
-      return res.status(400).json({ message: "Token invalid or expired" });
-
-    u.password = await bcrypt.hash(password, 10);
-    u.resetToken = undefined;
-    u.resetTokenExp = undefined;
-    await u.save();
-
-    res.json({ message: "Password updated" });
-  } catch (err) {
-    console.error("resetPassword error:", err);
+    console.error("getProfile error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
