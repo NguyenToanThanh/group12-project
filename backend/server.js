@@ -1,38 +1,53 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const helmet = require("helmet");
 const mongoose = require("mongoose");
-require("dotenv").config();
+
+const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/user");
 
 const app = express();
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
+/* ===== Security & Middlewares ===== */
+app.use(helmet()); // Security headers
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-  console.error("Missing MONGO_URI in .env");
-  process.exit(1);
-}
-
-mongoose.set("strictQuery", false);
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected");
-
-    // Routes
-    app.use("/api", require("./routes/auth"));
-    app.use("/api", require("./routes/user"));
-
-    app.get("/", (_req, res) => res.send("User Management API"));
-    const PORT = process.env.PORT || 4000;
-    app.listen(PORT, () => console.log(`API running on :${PORT}`));
+/* ===== CORS ===== */
+app.use(
+  cors({
+    origin: [process.env.CLIENT_URL || "http://localhost:3000"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
+);
+
+/* ===== Routes ===== */
+app.get("/health", (req, res) =>
+  res.json({ ok: true, time: new Date().toISOString() })
+);
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
+
+/* ===== Start & DB ===== */
+const PORT = process.env.PORT || 4000;
+const MONGODB_URI = process.env.MONGODB_URI;
+
+async function start() {
+  try {
+    await mongoose.connect(MONGODB_URI, { autoIndex: true });
+    console.log("MongoDB connected");
+    app.listen(PORT, () =>
+      console.log(`API ready on http://localhost:${PORT}`)
+    );
+  } catch (err) {
+    console.error("DB connection error:", err.message);
     process.exit(1);
-  });
+  }
+}
+start();

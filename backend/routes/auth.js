@@ -1,18 +1,16 @@
-const express = require("express");
-const router = express.Router();
+const router = require("express").Router();
+const { loginLimiter } = require("../middlewares/rateLimit");
+
 const {
   signup,
   login,
+  refresh,
   logout,
-  forgotPassword,
-  resetPassword,
 } = require("../controllers/userController");
 
 router.post("/signup", signup);
-router.post("/login", login);
+router.post("/login", loginLimiter, login); // Apply rate limiting to login
+router.post("/refresh", refresh);
 router.post("/logout", logout);
-
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password/:token", resetPassword);
 
 module.exports = router;
