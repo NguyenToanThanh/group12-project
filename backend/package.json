@@ -1,5 +1,5 @@
 {
-  "name": "activity1-refresh-token",
+  "name": "backend",
   "version": "1.0.0",
   "description": "Hoạt động 1: JWT Refresh Token & Session Management",
   "main": "server.js",
@@ -21,3 +21,4 @@
     "nodemon": "^3.1.10"
   }
 }
+
