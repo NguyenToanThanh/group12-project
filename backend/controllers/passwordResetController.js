@@ -4,6 +4,7 @@ const {
   sendPasswordResetEmail,
   sendPasswordResetSuccessEmail,
 } = require("../utils/mailer");
+const { logActivity } = require("../middlewares/activityLogger");
 
 /* ========== PASSWORD RESET ========== */
 
@@ -36,6 +37,13 @@ exports.forgotPassword = async (req, res) => {
       console.log("Reset token:", resetToken);
       await sendPasswordResetEmail(user.email, resetToken, user.name);
 
+      // Log activity
+      await logActivity(user._id, "password_reset_request", {
+        description: `Password reset requested for ${user.email}`,
+        status: "success",
+        req,
+      });
+
       res.json({
         message: "Password reset link has been sent to your email",
         // For development/testing only - remove in production
@@ -46,6 +54,14 @@ exports.forgotPassword = async (req, res) => {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
       await user.save({ validateBeforeSave: false });
+
+      // Log failed activity
+      await logActivity(user._id, "password_reset_request", {
+        description: "Failed to send password reset email",
+        status: "failed",
+        metadata: { error: emailError.message },
+        req,
+      });
 
       console.error("Email error details:", emailError.message);
       console.error("Full error:", emailError);
@@ -96,6 +112,13 @@ exports.resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     user.refreshToken = undefined; // Invalidate all sessions
     await user.save();
+
+    // Log activity
+    await logActivity(user._id, "password_reset_success", {
+      description: `Password reset completed for ${user.email}`,
+      status: "success",
+      req,
+    });
 
     // Send confirmation email (don't wait for it)
     sendPasswordResetSuccessEmail(user.email, user.name).catch((err) =>
