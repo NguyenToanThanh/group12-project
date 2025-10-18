@@ -3,32 +3,52 @@ const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+    },
     email: {
       type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
+      required: [true, "Email is required"],
       unique: true,
-      index: true,
+      lowercase: true,
+      trim: true,
     },
-    password: { type: String, required: true, select: false },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: 6,
+      select: false, // Don't return password by default
+    },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "moderator", "admin"],
       default: "user",
     },
-
-    // Refresh token for JWT
-    refreshToken: String,
+    refreshToken: {
+      type: String,
+      select: false,
+    },
+    // Avatar fields
+    avatar: {
+      type: String, // URL của ảnh trên Cloudinary
+      default: null,
+    },
+    avatarPublicId: {
+      type: String, // Public ID để xóa ảnh trên Cloudinary
+      default: null,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 

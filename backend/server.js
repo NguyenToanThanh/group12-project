@@ -29,8 +29,19 @@ app.use(
 
 /* ===== Routes ===== */
 app.get("/health", (req, res) =>
-  res.json({ ok: true, time: new Date().toISOString() })
+  res.json({
+    ok: true,
+    time: new Date().toISOString(),
+    activity: "Activity 3 - Avatar Upload",
+    features: [
+      "JWT Auth",
+      "Rate Limiting",
+      "Security Headers",
+      "Avatar Upload (Multer + Sharp + Cloudinary)",
+    ],
+  })
 );
+
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 
@@ -42,6 +53,7 @@ async function start() {
   try {
     await mongoose.connect(MONGODB_URI, { autoIndex: true });
     console.log("MongoDB connected");
+    console.log("Activity 3: Avatar Upload with Multer + Sharp + Cloudinary");
     app.listen(PORT, () =>
       console.log(`API ready on http://localhost:${PORT}`)
     );

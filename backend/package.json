@@ -1,7 +1,7 @@
 {
-  "name": "activity2-rate-limiting",
+  "name": "activity3-avatar-upload",
   "version": "1.0.0",
-  "description": "Hoạt động 2: Rate Limiting & Security",
+  "description": "Hoạt động 3: Upload ảnh đại diện (Avatar) với Multer + Sharp + Cloudinary",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
@@ -17,7 +18,9 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.1",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
