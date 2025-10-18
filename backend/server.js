@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const helmet = require("helmet");
 const mongoose = require("mongoose");
 
 const authRoutes = require("./routes/auth");
@@ -10,7 +11,8 @@ const userRoutes = require("./routes/user");
 
 const app = express();
 
-/* ===== Basic Middlewares ===== */
+/* ===== Security & Middlewares ===== */
+app.use(helmet()); // Security headers
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));

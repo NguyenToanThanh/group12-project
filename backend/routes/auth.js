@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const { loginLimiter } = require("../middlewares/rateLimit");
 
 const {
   signup,
@@ -8,7 +9,7 @@ const {
 } = require("../controllers/userController");
 
 router.post("/signup", signup);
-router.post("/login", login);
+router.post("/login", loginLimiter, login); // Apply rate limiting to login
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 
