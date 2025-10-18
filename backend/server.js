@@ -32,12 +32,12 @@ app.get("/health", (req, res) =>
   res.json({
     ok: true,
     time: new Date().toISOString(),
-    activity: "Activity 3 - Avatar Upload",
+    activity: "Activity 4 - Password Reset",
     features: [
       "JWT Auth",
       "Rate Limiting",
       "Security Headers",
-      "Avatar Upload (Multer + Sharp + Cloudinary)",
+      "Password Reset with Email (Nodemailer)",
     ],
   })
 );
@@ -53,7 +53,8 @@ async function start() {
   try {
     await mongoose.connect(MONGODB_URI, { autoIndex: true });
     console.log("MongoDB connected");
-    console.log("Activity 3: Avatar Upload with Multer + Sharp + Cloudinary");
+    console.log("Activity 4: Password Reset with Email (Nodemailer)");
+    console.log(`SMTP configured: ${process.env.SMTP_USER ? "✓" : "✗"}`);
     app.listen(PORT, () =>
       console.log(`API ready on http://localhost:${PORT}`)
     );

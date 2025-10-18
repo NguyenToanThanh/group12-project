@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
@@ -30,14 +31,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
-    // Avatar fields
-    avatar: {
-      type: String, // URL của ảnh trên Cloudinary
-      default: null,
+    // Password reset fields
+    resetPasswordToken: {
+      type: String,
+      select: false,
     },
-    avatarPublicId: {
-      type: String, // Public ID để xóa ảnh trên Cloudinary
-      default: null,
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
     },
   },
   {
@@ -51,5 +52,23 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+
+// Generate password reset token
+userSchema.methods.createPasswordResetToken = function () {
+  // Generate random token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  // Hash token and store in database
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set expiration (15 minutes from now)
+  this.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+
+  // Return unhashed token (this will be sent in email)
+  return resetToken;
+};
 
 module.exports = mongoose.model("User", userSchema);
