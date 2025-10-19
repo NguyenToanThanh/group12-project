@@ -1,0 +1,181 @@
+=================================================================
+   🎥 BẮT ĐẦU DEMO NGAY - 3 BƯỚC ĐƠN GIẢN
+=================================================================
+
+📌 BƯỚC 1: ĐỌC FILES NÀY (10 phút)
+───────────────────────────────────────
+1. HUONG_DAN_DEMO_VIDEO.md  ← Hướng dẫn đầy đủ nhất
+2. DEMO_QUICK_REFERENCE.txt ← In ra đọc khi demo
+
+📌 BƯỚC 2: CHUẨN BỊ (5 phút)
+───────────────────────────────────────
+□ Mở OBS Studio / Zoom / Loom
+□ Start backend:
+  cd backend
+  node index.js
+
+□ Start frontend:
+  cd frontend  
+  npm start
+
+□ Browser:
+  - Mở http://localhost:3000
+  - Cài Redux DevTools Extension
+  - F12 → localStorage.clear()
+  - Zoom 110%
+
+□ VS Code:
+  - Font size 16-18px
+  - Mở files sẵn:
+    * src/redux/store.js
+    * src/redux/authSlice.js
+    * src/components/ProtectedRoute.jsx
+    * src/pages/Login.jsx
+    * src/App.jsx
+
+□ Tắt notifications
+□ Close các apps không cần
+□ Test microphone
+
+📌 BƯỚC 3: GHI HÌNH (15 phút)
+───────────────────────────────────────
+
+TIMELINE:
+┌─────────────────────────────────────┐
+│ 0:00-1:30   Giới thiệu             │
+│ 1:30-4:00   Show Redux code        │
+│ 4:00-6:00   Show ProtectedRoute    │
+│ 6:00-14:00  🎬 DEMO LIVE (QUAN TRỌNG!)
+│ 14:00-16:00 Code walkthrough       │
+│ 16:00-17:00 Tools & docs           │
+│ 17:00-18:00 Kết luận               │
+└─────────────────────────────────────┘
+
+DEMO LIVE - 7 SCENARIOS:
+1. Public access → blocked ✅
+2. Signup account ✅
+3. Login user → tokens saved ✅
+4. User access routes ✅
+5. Refresh page → still logged in ✅
+6. Logout → clear all ✅
+7. Login admin → admin routes ✅
+
+=================================================================
+
+🎤 OPENING (Đọc này khi bắt đầu):
+───────────────────────────────────────
+"Xin chào! Em là [Tên], thành viên Frontend số 2.
+
+Hôm nay em demo Hoạt động 6: Redux và Protected Routes.
+
+Gồm 3 phần:
+1. Redux code
+2. Live demo
+3. Documentation
+
+Bắt đầu!"
+
+=================================================================
+
+🎤 CLOSING (Đọc này khi kết thúc):
+───────────────────────────────────────
+"Tóm lại em đã hoàn thành:
+
+✅ Redux Toolkit setup
+✅ Protected Routes với role-based access
+✅ Persistent authentication
+✅ Debug tools và documentation
+
+Code đã push GitHub, docs đầy đủ.
+
+Cảm ơn thầy/cô!"
+
+=================================================================
+
+🔧 CONSOLE COMMANDS (Copy sẵn):
+───────────────────────────────────────
+localStorage.getItem('accessToken')
+localStorage.getItem('refreshToken')
+localStorage.clear()
+
+=================================================================
+
+👤 TEST ACCOUNTS:
+───────────────────────────────────────
+User:  test@example.com / test123
+Admin: admin@example.com / admin123
+
+=================================================================
+
+⚠️ NẾU CÓ VẤN ĐỀ:
+───────────────────────────────────────
+Backend lỗi:
+  cd backend && node index.js
+
+Frontend lỗi:
+  cd frontend && npm start
+
+Redux weird:
+  localStorage.clear() → refresh
+
+=================================================================
+
+✅ CHECKLIST CUỐI:
+───────────────────────────────────────
+Trước khi record:
+□ Backend running
+□ Frontend running  
+□ localStorage cleared
+□ Redux DevTools ready
+□ Mic test OK
+□ Font size OK
+□ Notifications OFF
+
+Trong khi record:
+□ Nói rõ ràng
+□ Show Redux DevTools
+□ Demo 7 scenarios
+□ Highlight code quan trọng
+
+Sau khi record:
+□ Review video
+□ Check audio
+□ Upload video
+□ Git push
+□ Create PR
+□ Submit!
+
+=================================================================
+
+📂 FILES ĐÃ TẠO (20 files):
+───────────────────────────────────────
+Redux: 2 files ✅
+Components: 2 files ✅
+Pages: 6 files ✅
+Core: 2 files ✅
+Documentation: 6 files ✅
+Demo Tools: 2 files ✅
+
+=================================================================
+
+🎯 REMEMBER:
+───────────────────────────────────────
+✅ TỰ TIN!
+✅ NÓI RÕ RÀNG
+✅ SHOW REDUX DEVTOOLS
+✅ DEMO ĐẦY ĐỦ
+✅ ENJOY!
+
+=================================================================
+
+🚀 BẮT ĐẦU NGAY!
+
+1. Đọc HUONG_DAN_DEMO_VIDEO.md (10 min)
+2. Setup tools (5 min)
+3. Practice demo 1 lần (15 min)
+4. Ghi hình chính thức (15 min)
+5. Review & submit!
+
+YOU GOT THIS! 💪🎉
+
+=================================================================

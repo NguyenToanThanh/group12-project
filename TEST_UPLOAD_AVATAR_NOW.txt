@@ -1,0 +1,110 @@
+╔══════════════════════════════════════════════════════════════╗
+║  🎯 FIX UPLOAD AVATAR ERROR - ĐÃ SỬA XONG!                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+✅ ĐÃ SỬA:
+   1. Frontend: Port 4000 → 5000 trong UploadAvatar.jsx
+   2. Backend: Đã restart trên port 5000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🐛 NGUYÊN NHÂN LỖI:
+
+1. Backend KHÔNG CHẠY → ERR_CONNECTION_REFUSED
+2. Frontend gọi PORT SAI (4000 thay vì 5000)
+3. → Upload không kết nối được backend
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 TEST NGAY (3 BƯỚC):
+
+BƯỚC 1: REFRESH TRANG
+   Nhấn F5 trên trang Upload Avatar
+
+BƯỚC 2: CHỌN ẢNH
+   ┌─────────────────────────────────────┐
+   │ 📁 Click "Chọn ảnh"                 │
+   │ → Chọn file JPG/PNG (< 5MB)        │
+   │ → Xem preview hiển thị              │
+   └─────────────────────────────────────┘
+
+BƯỚC 3: UPLOAD
+   ┌─────────────────────────────────────┐
+   │ 🚀 Click "Upload Avatar"            │
+   │                                     │
+   │ ✅ Kỳ vọng:                          │
+   │    - Message: "Upload thành công!"  │
+   │    - Hiển thị avatar đã upload      │
+   │    - URL: http://localhost:5000/... │
+   └─────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 KIỂM TRA NETWORK TAB (F12):
+
+Request phải thành công:
+┌────────────────────────────────────────────┐
+│ POST http://localhost:5000/api/upload-...  │
+│ Status: 200 OK                             │
+│                                            │
+│ Response:                                  │
+│ {                                          │
+│   "message": "Upload thành công!",         │
+│   "url": "http://localhost:5000/uplo..."   │
+│ }                                          │
+└────────────────────────────────────────────┘
+
+KHÔNG còn lỗi:
+   ❌ ERR_CONNECTION_REFUSED
+   ❌ 400 Bad Request
+   ❌ AxiosError
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 TEST CASES:
+
+TEST 1: Ảnh hợp lệ (JPG, 1MB)
+   → ✅ Upload thành công!
+
+TEST 2: File PDF
+   → ❌ Chỉ chấp nhận file ảnh
+
+TEST 3: Ảnh 10MB
+   → ❌ File quá lớn! Tối đa 5MB
+
+TEST 4: Không chọn file
+   → ❌ Vui lòng chọn file trước
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 FILE ĐÃ UPLOAD:
+
+Backend lưu vào: backend/uploads/
+
+Kiểm tra:
+   dir backend\uploads
+
+   → Kết quả: 1729....-.jpg (file vừa upload)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ NẾU VẪN LỖI:
+
+1. Kiểm tra backend có chạy không:
+   netstat -ano | findstr :5000
+   → Phải có output!
+
+2. Nếu không có → Restart:
+   cd backend
+   node index.js
+
+3. Kiểm tra Redux state:
+   - Authenticated: true ✅
+   - Có access token ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 CHI TIẾT:
+   Xem file: FIX_UPLOAD_AVATAR_ERROR.md
+
+🎯 BẮT ĐẦU TEST UPLOAD NGAY!

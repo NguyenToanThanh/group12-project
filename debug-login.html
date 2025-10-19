@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>🔍 Debug Login - localStorage</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            margin: 8px 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        #output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .success { color: #4ade80; font-weight: bold; }
+        .error { color: #f87171; font-weight: bold; }
+        .info { color: #60a5fa; }
+        .warning { color: #fbbf24; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .token-display {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .step {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Debug Login & localStorage</h1>
+        
+        <div class="section">
+            <h3>📝 Thông tin đăng nhập</h3>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="123456">
+        </div>
+
+        <div class="section">
+            <h3>🧪 Test Actions</h3>
+            <button onclick="testLogin()">🔑 Test Login</button>
+            <button onclick="testSignup()">📝 Test Signup</button>
+            <button class="btn-success" onclick="checkLocalStorage()">👁️ Check localStorage</button>
+            <button class="btn-danger" onclick="clearAll()">🗑️ Clear All</button>
+        </div>
+
+        <div id="output" class="output">
+<span class="info">✨ Sẵn sàng! Click "Test Login" để bắt đầu.</span>
+        </div>
+
+        <div class="section">
+            <h3>📋 localStorage Content</h3>
+            <div id="storageDisplay" style="min-height: 50px;">
+                <span class="warning">Chưa có dữ liệu...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:4000/api';
+        let logCount = 0;
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const colors = {
+                success: 'success',
+                error: 'error',
+                info: 'info',
+                warning: 'warning'
+            };
+            const time = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            
+            output.innerHTML += `\n<span class="${colors[type]}">[${time}] ${prefix} ${message}</span>`;
+            output.scrollTop = output.scrollHeight;
+            logCount++;
+        }
+
+        function clearLog() {
+            document.getElementById('output').innerHTML = '';
+            logCount = 0;
+        }
+
+        function updateStorageDisplay() {
+            const display = document.getElementById('storageDisplay');
+            const accessToken = localStorage.getItem('accessToken');
+            const refreshToken = localStorage.getItem('refreshToken');
+            
+            if (!accessToken && !refreshToken) {
+                display.innerHTML = '<span class="warning">⚠️ localStorage TRỐNG!</span>';
+                return;
+            }
+
+            let html = '';
+            if (accessToken) {
+                html += `<div class="token-display">
+                    <strong style="color: #059669;">🔑 Access Token:</strong><br>
+                    ${accessToken.substring(0, 100)}...
+                </div>`;
+            }
+            if (refreshToken) {
+                html += `<div class="token-display">
+                    <strong style="color: #7c3aed;">🔄 Refresh Token:</strong><br>
+                    ${refreshToken.substring(0, 100)}...
+                </div>`;
+            }
+            display.innerHTML = html;
+        }
+
+        async function testLogin() {
+            clearLog();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            log('🚀 Bắt đầu test login...', 'info');
+            log(`📧 Email: ${email}`, 'info');
+            log(`🔒 Password: ${'*'.repeat(password.length)}`, 'info');
+            log('', 'info');
+
+            try {
+                log('📡 Đang gọi API: POST ' + API_URL + '/login', 'info');
+                
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                log(`📥 HTTP Status: ${response.status} ${response.statusText}`, 'info');
+
+                const data = await response.json();
+                log('📦 Response Data:', 'info');
+                log(JSON.stringify(data, null, 2), 'info');
+                log('', 'info');
+
+                // Kiểm tra tokens trong response
+                if (data.accessToken) {
+                    log('✅ CÓ accessToken trong response!', 'success');
+                    log(`   Token: ${data.accessToken.substring(0, 50)}...`, 'info');
+                    localStorage.setItem('accessToken', data.accessToken);
+                    log('✅ Đã LƯU accessToken vào localStorage', 'success');
+                } else {
+                    log('❌ KHÔNG có accessToken trong response!', 'error');
+                }
+
+                if (data.refreshToken) {
+                    log('✅ CÓ refreshToken trong response!', 'success');
+                    log(`   Token: ${data.refreshToken.substring(0, 50)}...`, 'info');
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                    log('✅ Đã LƯU refreshToken vào localStorage', 'success');
+                } else {
+                    log('❌ KHÔNG có refreshToken trong response!', 'error');
+                }
+
+                log('', 'info');
+                log('🔍 Kiểm tra localStorage sau khi lưu:', 'info');
+                const savedAccess = localStorage.getItem('accessToken');
+                const savedRefresh = localStorage.getItem('refreshToken');
+                
+                if (savedAccess) {
+                    log(`✅ accessToken trong localStorage: ${savedAccess.substring(0, 50)}...`, 'success');
+                } else {
+                    log('❌ accessToken KHÔNG TỒN TẠI trong localStorage!', 'error');
+                }
+
+                if (savedRefresh) {
+                    log(`✅ refreshToken trong localStorage: ${savedRefresh.substring(0, 50)}...`, 'success');
+                } else {
+                    log('❌ refreshToken KHÔNG TỒN TẠI trong localStorage!', 'error');
+                }
+
+                updateStorageDisplay();
+
+            } catch (error) {
+                log('❌ LỖI KHI GỌI API:', 'error');
+                log(`   Message: ${error.message}`, 'error');
+                log(`   Stack: ${error.stack}`, 'error');
+                
+                if (error.message.includes('Failed to fetch')) {
+                    log('', 'error');
+                    log('💡 GỢI Ý: Backend có thể chưa chạy hoặc CORS chưa đúng!', 'warning');
+                    log('   1. Kiểm tra backend có chạy: http://localhost:4000/api/health', 'warning');
+                    log('   2. Kiểm tra CORS config trong backend/index.js', 'warning');
+                }
+            }
+        }
+
+        async function testSignup() {
+            clearLog();
+            const email = `test${Date.now()}@example.com`;
+            const password = document.getElementById('password').value;
+
+            log('🚀 Bắt đầu test signup...', 'info');
+            log(`📧 Email: ${email}`, 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Test User',
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+                log('📦 Response:', 'info');
+                log(JSON.stringify(data, null, 2), 'info');
+
+                if (data.accessToken && data.refreshToken) {
+                    localStorage.setItem('accessToken', data.accessToken);
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                    log('✅ Signup thành công! Tokens đã lưu.', 'success');
+                    updateStorageDisplay();
+                }
+            } catch (error) {
+                log(`❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        function checkLocalStorage() {
+            clearLog();
+            log('🔍 Đang kiểm tra localStorage...', 'info');
+            log('', 'info');
+
+            const keys = Object.keys(localStorage);
+            log(`📊 Tổng số keys trong localStorage: ${keys.length}`, 'info');
+            
+            if (keys.length === 0) {
+                log('⚠️ localStorage TRỐNG!', 'warning');
+                return;
+            }
+
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                log(`🔑 ${key}:`, 'info');
+                log(`   ${value.substring(0, 100)}...`, 'info');
+            });
+
+            updateStorageDisplay();
+        }
+
+        function clearAll() {
+            localStorage.clear();
+            clearLog();
+            log('🗑️ Đã xóa tất cả localStorage!', 'warning');
+            updateStorageDisplay();
+        }
+
+        // Auto check localStorage on page load
+        window.onload = () => {
+            updateStorageDisplay();
+        };
+    </script>
+</body>
+</html>

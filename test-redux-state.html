@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Redux State - Group 12</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #667eea;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #764ba2;
+      margin-top: 30px;
+    }
+    .info-box {
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      border-left-color: #28a745;
+      color: #155724;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left-color: #ffc107;
+      color: #856404;
+    }
+    .error {
+      background: #f8d7da;
+      border-left-color: #dc3545;
+      color: #721c24;
+    }
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: #764ba2;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+    }
+    .status {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .status.ok {
+      background: #28a745;
+      color: white;
+    }
+    .status.fail {
+      background: #dc3545;
+      color: white;
+    }
+    #output {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Test Redux State & Protected Routes</h1>
+    <p><strong>Hoạt động 6:</strong> Quản lý state nâng cao với Redux, chặn truy cập trang nếu chưa đăng nhập</p>
+
+    <div class="info-box success">
+      <strong>✅ Đã cài đặt:</strong> Redux Toolkit, React-Redux, Protected Routes
+    </div>
+
+    <h2>📋 Checklist Tính Năng</h2>
+    <div class="test-section">
+      <div>
+        <strong>1. Redux Store</strong>
+        <span class="status ok">✓ OK</span>
+        <ul>
+          <li>Store tại: <code>src/redux/store.js</code></li>
+          <li>Auth Slice: <code>src/redux/authSlice.js</code></li>
+          <li>Provider trong: <code>src/index.js</code></li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>2. Protected Routes</strong>
+        <span class="status ok">✓ OK</span>
+        <ul>
+          <li>Component: <code>src/components/ProtectedRoute.jsx</code></li>
+          <li>Kiểm tra authentication từ Redux</li>
+          <li>Hỗ trợ role-based access: <code>requiredRole="admin"</code></li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>3. Redux Thunks</strong>
+        <span class="status ok">✓ OK</span>
+        <ul>
+          <li><code>loginUser</code> - Đăng nhập với email/password</li>
+          <li><code>signupUser</code> - Đăng ký tài khoản mới</li>
+          <li><code>refreshAccessToken</code> - Làm mới access token</li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>4. Components sử dụng Redux</strong>
+        <span class="status ok">✓ OK</span>
+        <ul>
+          <li>Login.jsx - useDispatch, useSelector</li>
+          <li>Signup.jsx - useDispatch, useSelector</li>
+          <li>Home.jsx - useSelector</li>
+          <li>App.jsx - useSelector, dispatch logout</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>🧪 Hướng Dẫn Test</h2>
+    
+    <div class="test-section">
+      <h3>Test 1: Kiểm tra Redux State trong Console</h3>
+      <button onclick="testReduxState()">Kiểm tra Redux State</button>
+      <button onclick="checkLocalStorage()">Kiểm tra LocalStorage</button>
+      <button onclick="decodeToken()">Decode JWT Token</button>
+    </div>
+
+    <div class="test-section">
+      <h3>Test 2: Test Protected Routes</h3>
+      <div class="info-box warning">
+        <strong>⚠️ Lưu ý:</strong> Phải chạy ứng dụng React tại http://localhost:3000
+      </div>
+      <button onclick="testProtectedRoute()">Test /profile (protected)</button>
+      <button onclick="testAdminRoute()">Test /admin (admin only)</button>
+      <button onclick="testPublicRoute()">Test / (public)</button>
+    </div>
+
+    <div class="test-section">
+      <h3>Test 3: Test Authentication Flow</h3>
+      <ol>
+        <li>Mở http://localhost:3000</li>
+        <li>Click "Đăng ký" và tạo tài khoản</li>
+        <li>Login với tài khoản vừa tạo</li>
+        <li>Kiểm tra Navigation bar hiển thị email và role</li>
+        <li>Thử truy cập /profile (phải thành công)</li>
+        <li>Logout</li>
+        <li>Thử truy cập /profile lần nữa (phải redirect về /login)</li>
+      </ol>
+    </div>
+
+    <div class="test-section">
+      <h3>Test 4: Test Role-Based Access</h3>
+      <div class="info-box">
+        <strong>Admin Account (từ backend):</strong><br>
+        Email: admin@example.com<br>
+        Password: admin123<br>
+        Role: admin
+      </div>
+      <ol>
+        <li>Login với tài khoản admin</li>
+        <li>Kiểm tra có thấy "Admin Dashboard" và "Activity Logs" ở nav</li>
+        <li>Truy cập /admin (phải thành công)</li>
+        <li>Logout và login lại với user thường</li>
+        <li>Thử truy cập /admin (phải redirect về /)</li>
+      </ol>
+    </div>
+
+    <h2>📊 State Structure</h2>
+    <pre>{
+  "auth": {
+    "user": {
+      "email": "user@example.com",
+      "role": "admin | moderator | user",
+      "userId": "123"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "refresh_token_here",
+    "isAuthenticated": true,
+    "loading": false,
+    "error": null
+  }
+}</pre>
+
+    <h2>🛣️ Routes Configuration</h2>
+    <div class="test-section">
+      <h3>Public Routes (không cần login)</h3>
+      <ul>
+        <li>/ - Trang chủ</li>
+        <li>/login - Đăng nhập</li>
+        <li>/signup - Đăng ký</li>
+        <li>/forgot-password - Quên mật khẩu</li>
+        <li>/reset-password - Đặt lại mật khẩu</li>
+      </ul>
+
+      <h3>Protected Routes (cần login)</h3>
+      <ul>
+        <li>/profile - Trang cá nhân</li>
+        <li>/upload-avatar - Upload ảnh đại diện</li>
+      </ul>
+
+      <h3>Admin Only Routes (cần role=admin)</h3>
+      <ul>
+        <li>/admin - Admin Dashboard</li>
+        <li>/admin/logs - Activity Logs</li>
+      </ul>
+    </div>
+
+    <div id="output"></div>
+
+    <div class="info-box success" style="margin-top: 30px;">
+      <h3>✅ Hoàn thành Hoạt động 6</h3>
+      <p>Đã cài đặt Redux Toolkit và Protected Routes thành công!</p>
+      <ul>
+        <li>✅ Redux store và auth slice</li>
+        <li>✅ Protected routes với role-based access</li>
+        <li>✅ Token management với localStorage</li>
+        <li>✅ Redux thunks cho API calls</li>
+        <li>✅ Persistent authentication state</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function testReduxState() {
+      const output = document.getElementById('output');
+      output.innerHTML = `
+        <div class="info-box">
+          <h3>Redux State Test</h3>
+          <p>Mở Developer Console (F12) và kiểm tra:</p>
+          <pre>
+// Nếu đã cài Redux DevTools Extension:
+// Mở Redux DevTools tab để xem state tree
+
+// Hoặc kiểm tra trong Console:
+console.log('Store state:', store.getState())
+
+// Kiểm tra auth state:
+console.log('Auth state:', store.getState().auth)
+          </pre>
+          <p><strong>Lưu ý:</strong> Cần chạy ứng dụng React trước</p>
+        </div>
+      `;
+    }
+
+    function checkLocalStorage() {
+      const accessToken = localStorage.getItem('accessToken');
+      const refreshToken = localStorage.getItem('refreshToken');
+      const output = document.getElementById('output');
+      
+      output.innerHTML = `
+        <div class="info-box ${accessToken ? 'success' : 'warning'}">
+          <h3>LocalStorage Check</h3>
+          <p><strong>Access Token:</strong> ${accessToken ? '✅ Found' : '❌ Not found'}</p>
+          ${accessToken ? `<pre style="max-height: 100px; overflow: auto;">${accessToken}</pre>` : ''}
+          
+          <p><strong>Refresh Token:</strong> ${refreshToken ? '✅ Found' : '❌ Not found'}</p>
+          ${refreshToken ? `<pre style="max-height: 100px; overflow: auto;">${refreshToken}</pre>` : ''}
+          
+          ${!accessToken ? '<p class="warning">Bạn chưa đăng nhập. Vui lòng login tại http://localhost:3000/login</p>' : ''}
+        </div>
+      `;
+    }
+
+    function decodeToken() {
+      const token = localStorage.getItem('accessToken');
+      const output = document.getElementById('output');
+      
+      if (!token) {
+        output.innerHTML = `
+          <div class="info-box error">
+            <h3>Token Not Found</h3>
+            <p>Không tìm thấy access token. Vui lòng login trước.</p>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const decoded = JSON.parse(jsonPayload);
+        
+        output.innerHTML = `
+          <div class="info-box success">
+            <h3>✅ Decoded JWT Token</h3>
+            <pre>${JSON.stringify(decoded, null, 2)}</pre>
+            <p><strong>User Info:</strong></p>
+            <ul>
+              <li>Email: ${decoded.email}</li>
+              <li>Role: ${decoded.role}</li>
+              <li>User ID: ${decoded.userId}</li>
+              <li>Issued At: ${new Date(decoded.iat * 1000).toLocaleString()}</li>
+              <li>Expires At: ${new Date(decoded.exp * 1000).toLocaleString()}</li>
+            </ul>
+          </div>
+        `;
+      } catch (error) {
+        output.innerHTML = `
+          <div class="info-box error">
+            <h3>❌ Decode Error</h3>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function testProtectedRoute() {
+      window.open('http://localhost:3000/profile', '_blank');
+    }
+
+    function testAdminRoute() {
+      window.open('http://localhost:3000/admin', '_blank');
+    }
+
+    function testPublicRoute() {
+      window.open('http://localhost:3000/', '_blank');
+    }
+
+    // Auto-check localStorage on page load
+    window.addEventListener('load', () => {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        console.log('✅ Access Token found in localStorage');
+        console.log('Token:', token);
+      } else {
+        console.log('❌ No access token found. Please login at http://localhost:3000/login');
+      }
+    });
+  </script>
+</body>
+</html>
