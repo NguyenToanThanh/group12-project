@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "./api";
 
 function AddUser({ onUserAdded }) {
   const [name, setName] = useState("");
@@ -13,25 +13,27 @@ function AddUser({ onUserAdded }) {
       alert("Name không được để trống");
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    if (!/\S+@\S+\.\S+/.test(email)) {
       alert("Email không hợp lệ");
       return;
     }
 
     try {
-      await axios.post("http://localhost:3000/users", { name, email });
+      await api.post("/users", { name, email });
       setName("");
       setEmail("");
-      onUserAdded?.(); // gọi lại cha để refresh list nếu cần
-      alert("Thêm user thành công!");
+      onUserAdded?.(); // refresh danh sách
     } catch (err) {
-      console.error("Lỗi khi thêm user:", err);
-      alert("Có lỗi xảy ra khi thêm user");
+      console.error(err);
+      alert(err?.response?.data?.message || "Không thể thêm user");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: "flex", gap: 8, margin: "12px 0" }}
+    >
       <input
         type="text"
         placeholder="Nhập tên user"
