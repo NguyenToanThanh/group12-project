@@ -67,7 +67,11 @@ export default function Home() {
         >
           <div style={{ padding: 20, border: "2px solid #f57c00", borderRadius: 10 }}>
             <h3>⚡ Moderator Tools</h3>
-            <button style={{ padding: "10px 20px", background: "#f57c00", color: "white", border: "none", borderRadius: "6px" }}>Quản lý bài viết</button>
+            <Link to="/moderator">
+              <button style={{ padding: "10px 20px", background: "#f57c00", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}>
+                Quản lý bài viết
+              </button>
+            </Link>
           </div>
         </RoleGate>
 

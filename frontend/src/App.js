@@ -10,6 +10,9 @@ import Profile from './pages/profile/Profile';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
 import UploadAvatar from './pages/profile/UploadAvatar';
+import ModeratorTools from './pages/moderator/ModeratorTools';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ActivityLogs from './pages/admin/ActivityLogs';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function Nav() {
@@ -59,6 +62,30 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Home />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/moderator"
+              element={
+                <ProtectedRoute allowedRoles={["moderator", "admin"]}>
+                  <ModeratorTools />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/logs"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <ActivityLogs />
                 </ProtectedRoute>
               }
             />
