@@ -1,15 +1,17 @@
 const multer = require("multer");
 
 const storage = multer.memoryStorage();
-const fileFilter = (req, file, cb) => {
-  const ok = ["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(
-    file.mimetype
-  );
-  cb(ok ? null : new Error("Chỉ chấp nhận file ảnh"), ok);
-};
-
-module.exports = multer({
+const upload = multer({
   storage,
-  fileFilter,
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only JPG, PNG, WEBP files allowed"), false);
+    }
+  },
 });
+
+module.exports = upload;

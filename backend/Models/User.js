@@ -3,29 +3,34 @@ const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    email: {
-      type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
-      unique: true,
-      index: true,
-    },
+    name: { type: String },
+    email: { type: String, unique: true, required: true, index: true },
     password: { type: String, required: true, select: false },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "moderator", "admin"],
       default: "user",
+      index: true,
     },
 
-    // Refresh token for JWT
+    // Avatar
+    avatarUrl: String,
+    avatarPublicId: String,
+    avatarFormat: String,
+    avatarBytes: Number,
+    avatarWidth: Number,
+    avatarHeight: Number,
+
+    // Password reset
+    resetToken: String,
+    resetTokenExp: Date,
+
+    // Refresh token
     refreshToken: String,
   },
   { timestamps: true }
 );
 
-// Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
