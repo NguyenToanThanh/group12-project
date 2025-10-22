@@ -1,261 +1,236 @@
-const User = require("../Models/User");
+// controllers/userController.js
 const bcrypt = require("bcryptjs");
-const { signAccess, signRefresh } = require("../utils/jwt");
 const jwt = require("jsonwebtoken");
-const { logActivity, getClientIP } = require("../middlewares/activityLogger");
+const crypto = require("crypto");
+const sharp = require("sharp");
 
-/* ========== AUTHENTICATION ========== */
+const User = require("../Models/User");
+const cloud = require("../utils/cloudinary");
+const transporter = require("../utils/mailer");
+const { signAccess, signRefresh } = require("../utils/jwt");
 
-// POST /auth/signup
+/* ========== AUTH ========== */
+
 exports.signup = async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+  const { name, email, password } = req.body;
+  const existed = await User.findOne({ email });
+  if (existed) return res.status(400).json({ message: "Email đã tồn tại" });
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const existed = await User.findOne({ email });
-    if (existed) {
-      return res.status(400).json({ message: "Email already exists" });
-    }
-
-    const user = await User.create({ name, email, password });
-
-    // Log signup activity
-    await logActivity(user._id, "signup", {
-      description: `New user registered: ${email}`,
-      req,
-    });
-
-    const accessToken = signAccess({ id: user._id, role: user.role });
-    const refreshToken = signRefresh({ id: user._id });
-
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.status(201).json({
-      ok: true,
-      user: { _id: user._id, name: user.name, email: user.email },
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    console.error("signup error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
+  const u = await User.create({ name, email, password });
+  res.status(201).json({ id: u._id, email: u.email });
 };
 
 // POST /auth/login
 exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
+  const u = await User.findOne({ email }).select("+password");
+  if (!u) return res.status(401).json({ message: "Email hoặc mật khẩu sai" });
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Missing email or password" });
-    }
+  const ok = await bcrypt.compare(password, u.password);
+  if (!ok) return res.status(401).json({ message: "Email hoặc mật khẩu sai" });
 
-    // Find user and include password field
-    const user = await User.findOne({ email }).select("+password +lockUntil");
+  const accessToken = signAccess({ id: u._id, role: u.role });
+  const refreshToken = signRefresh({ id: u._id });
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+  u.refreshToken = refreshToken;
+  await u.save();
 
-    // Check if account is locked
-    if (user.isLocked) {
-      const lockTimeRemaining = Math.ceil(
-        (user.lockUntil - Date.now()) / 1000 / 60
-      );
-
-      // Log failed login due to lock
-      await logActivity(user._id, "failed_login", {
-        description: `Login attempt while account locked`,
-        status: "warning",
-        req,
-        metadata: { reason: "account_locked", lockTimeRemaining },
-      });
-
-      return res.status(423).json({
-        message: `Account is locked. Please try again in ${lockTimeRemaining} minutes.`,
-        locked: true,
-        retryAfter: lockTimeRemaining,
-      });
-    }
-
-    // Verify password
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      // Increment failed login attempts
-      await user.incLoginAttempts();
-
-      // Log failed login
-      await logActivity(user._id, "failed_login", {
-        description: `Failed login attempt for ${email}`,
-        status: "failure",
-        req,
-        metadata: {
-          attempts: user.loginAttempts + 1,
-          maxAttempts: 5,
-        },
-      });
-
-      // Check if account just got locked
-      if (user.loginAttempts + 1 >= 5) {
-        await logActivity(user._id, "account_locked", {
-          description: `Account locked after 5 failed login attempts`,
-          status: "warning",
-          req,
-        });
-
-        return res.status(423).json({
-          message:
-            "Too many failed login attempts. Account locked for 15 minutes.",
-          locked: true,
-          retryAfter: 15,
-        });
-      }
-
-      const attemptsLeft = 5 - (user.loginAttempts + 1);
-      return res.status(400).json({
-        message: "Invalid credentials",
-        attemptsLeft,
-      });
-    }
-
-    // Successful login - reset attempts
-    await user.resetLoginAttempts();
-
-    // Update last login info
-    user.lastLoginIP = getClientIP(req);
-    await user.save();
-
-    // Log successful login
-    await logActivity(user._id, "login", {
-      description: `User logged in successfully`,
-      req,
-    });
-
-    const accessToken = signAccess({ id: user._id, role: user.role });
-    const refreshToken = signRefresh({ id: user._id });
-
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.json({
-      ok: true,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        lastLogin: user.lastLogin,
-      },
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    console.error("login error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
+  res.json({
+    user: {
+      id: u._id,
+      email: u.email,
+      role: u.role,
+      name: u.name,
+      avatarUrl: u.avatarUrl,
+    },
+    accessToken,
+    refreshToken,
+  });
 };
 
 // POST /auth/refresh
 exports.refresh = async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken)
+    return res.status(400).json({ message: "Missing refreshToken" });
+
+  let payload;
   try {
-    const { refreshToken } = req.body;
-
-    if (!refreshToken) {
-      return res.status(400).json({ message: "Missing refresh token" });
-    }
-
-    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-
-    const user = await User.findById(payload.id).select("+refreshToken");
-
-    if (!user || user.refreshToken !== refreshToken) {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
-
-    const newAccessToken = signAccess({ id: user._id, role: user.role });
-    const newRefreshToken = signRefresh({ id: user._id });
-
-    user.refreshToken = newRefreshToken;
-    await user.save();
-
-    res.json({
-      ok: true,
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-    });
-  } catch (err) {
-    console.error("refresh error:", err);
-    if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError") {
-      return res.status(401).json({ message: "Invalid or expired token" });
-    }
-    res.status(500).json({ message: "Server error" });
+    payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  } catch {
+    return res
+      .status(401)
+      .json({ message: "Refresh token không hợp lệ hoặc hết hạn" });
   }
+
+  const u = await User.findById(payload.id);
+  if (!u || u.refreshToken !== refreshToken)
+    return res.status(401).json({ message: "Refresh token đã bị thu hồi" });
+
+  const accessToken = signAccess({ id: u._id, role: u.role });
+  return res.json({ accessToken });
 };
 
 // POST /auth/logout
 exports.logout = async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
-
-    if (!refreshToken) {
-      return res.status(400).json({ message: "Missing refresh token" });
+  const { refreshToken } = req.body;
+  if (refreshToken) {
+    const u = await User.findOne({ refreshToken });
+    if (u) {
+      u.refreshToken = undefined; // revoke
+      await u.save();
     }
-
-    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-
-    const user = await User.findById(payload.id);
-
-    if (user) {
-      // Log logout activity
-      await logActivity(user._id, "logout", {
-        description: "User logged out",
-        req,
-      });
-
-      user.refreshToken = null;
-      await user.save();
-    }
-
-    res.json({ ok: true, message: "Logged out successfully" });
-  } catch (err) {
-    console.error("logout error:", err);
-    res.status(500).json({ message: "Server error" });
   }
+  res.json({ message: "Đã đăng xuất" });
 };
 
-// GET /users/me
-exports.getMe = async (req, res) => {
+/* ========== FORGOT / RESET PASSWORD ========== */
+
+// POST /auth/forgot-password
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  const u = await User.findOne({ email });
+  if (!u)
+    return res.json({ message: "Nếu email tồn tại, chúng tôi sẽ gửi thư" });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  u.resetToken = token;
+  u.resetTokenExp = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+  await u.save();
+
+  const link = `${process.env.CLIENT_URL}/reset-password/${token}`;
+  await transporter.sendMail({
+    from: `"Support" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: "Đặt lại mật khẩu",
+    html: `<p>Nhấn liên kết trong 15 phút: <a href="${link}">${link}</a></p>`,
+  });
+
+  res.json({ message: "Đã gửi email nếu tồn tại" });
+};
+
+// POST /auth/reset-password/:token
+exports.resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  const u = await User.findOne({
+    resetToken: token,
+    resetTokenExp: { $gt: new Date() },
+  }).select("+password");
+
+  if (!u)
+    return res.status(400).json({ message: "Token không hợp lệ/hết hạn" });
+
+  u.password = password;
+  u.resetToken = undefined;
+  u.resetTokenExp = undefined;
+  await u.save();
+
+  res.json({ message: "Đổi mật khẩu thành công" });
+};
+
+/* ========== PROFILE ========== */
+
+// GET /users/profile
+exports.getProfile = async (req, res) => {
+  const u = await User.findById(req.user.id).select("-password");
+  res.json(u);
+};
+
+// PUT /users/profile
+exports.updateProfile = async (req, res) => {
+  const allowed = ["name"];
+  const patch = {};
+  for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+
+  const u = await User.findByIdAndUpdate(req.user.id, patch, {
+    new: true,
+  }).select("-password");
+  res.json(u);
+};
+
+/* ========== AVATAR ========== */
+
+// POST /users/upload-avatar
+exports.uploadAvatar = async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: "No file" });
+
+  const buf = await sharp(req.file.buffer).resize(256, 256).png().toBuffer();
+  const b64 = `data:image/png;base64,${buf.toString("base64")}`;
+
+  const up = await cloud.uploader.upload(b64, { folder: "avatars" });
+
+  const u = await User.findById(req.user.id);
+  // Xoá avatar cũ nếu có
+  if (u.avatarPublicId) {
+    try {
+      await cloud.uploader.destroy(u.avatarPublicId);
+    } catch {}
+  }
+  u.avatarUrl = up.secure_url;
+  u.avatarPublicId = up.public_id;
+  u.avatarFormat = up.format;
+  u.avatarBytes = up.bytes;
+  u.avatarWidth = up.width;
+  u.avatarHeight = up.height;
+  await u.save();
+
+  res.json({ avatarUrl: u.avatarUrl });
+};
+
+// DELETE /users/avatar
+exports.deleteAvatar = async (req, res) => {
+  const u = await User.findById(req.user.id);
+  if (u.avatarPublicId) {
+    try {
+      await cloud.uploader.destroy(u.avatarPublicId);
+    } catch {}
+  }
+  u.avatarUrl = u.avatarPublicId = u.avatarFormat = undefined;
+  u.avatarBytes = u.avatarWidth = u.avatarHeight = undefined;
+  await u.save();
+  res.json({ message: "Đã xoá avatar" });
+};
+
+/* ========== ADMIN ========== */
+
+// GET /users/users
+exports.getUsers = async (req, res) => {
+  const users = await User.find().select("-password");
+  res.json(users);
+};
+
+// PUT /users/users/:id/role
+exports.updateUserRole = async (req, res) => {
+  const u = await User.findByIdAndUpdate(
+    req.params.id,
+    { role: req.body.role },
+    { new: true }
+  ).select("-password");
+  res.json(u);
+};
+
+// DELETE /users/users/:id
+exports.deleteUser = async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ message: "Đã xoá user" });
+};
+
+/* ========== LOGS (DEBUG) ========== */
+
+const Log = require("../Models/Log");
+
+// GET /users/logs - Xem activity logs
+exports.getLogs = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select(
-      "-password -refreshToken"
-    );
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      ok: true,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        avatarPublicId: user.avatarPublicId,
-        lastLogin: user.lastLogin,
-        lastLoginIP: user.lastLoginIP,
-        createdAt: user.createdAt,
-      },
-    });
+    const logs = await Log.find()
+      .populate("user", "email name role")
+      .sort({ createdAt: -1 })
+      .limit(50); // Chỉ lấy 50 logs gần nhất
+    res.json(logs);
   } catch (err) {
-    console.error("getMe error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("getLogs error:", err);
+    res.status(500).json({ message: "Lỗi server" });
   }
 };

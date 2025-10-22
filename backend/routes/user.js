@@ -1,31 +1,35 @@
+// routes/user.js
 const router = require("express").Router();
-const verifyToken = require("../middlewares/auth");
-const { getMe } = require("../controllers/userController");
+
+const auth = require("../middlewares/auth");
+const checkRole = require("../middlewares/checkRole");
+const upload = require("../middlewares/upload");
+
 const {
-  getMyActivities,
-  getMyActivitySummary,
-} = require("../controllers/activityController");
-const {
+  getProfile,
+  updateProfile,
   uploadAvatar,
   deleteAvatar,
-} = require("../controllers/avatarController");
-const { upload, resizeImage } = require("../middlewares/upload");
+  getUsers,
+  deleteUser,
+  updateUserRole,
+  getLogs,
+} = require("../controllers/userController");
 
-// User routes
-router.get("/me", verifyToken, getMe);
+// Profile
+router.get("/profile", auth, getProfile);
+router.put("/profile", auth, updateProfile);
 
-// Activity 3: Avatar upload routes
-router.post(
-  "/avatar",
-  verifyToken,
-  upload.single("avatar"),
-  resizeImage,
-  uploadAvatar
-);
-router.delete("/avatar", verifyToken, deleteAvatar);
+// Avatar
+router.post("/upload-avatar", auth, upload.single("file"), uploadAvatar);
+router.delete("/avatar", auth, deleteAvatar);
 
-// Activity 5: Activity routes for current user
-router.get("/me/activities", verifyToken, getMyActivities);
-router.get("/me/activities/summary", verifyToken, getMyActivitySummary);
+// Admin
+router.get("/users", auth, checkRole("admin"), getUsers);
+router.delete("/users/:id", auth, checkRole("admin"), deleteUser);
+router.put("/users/:id/role", auth, checkRole("admin"), updateUserRole);
+
+// Logs (Debug)
+router.get("/logs", auth, checkRole("admin"), getLogs);
 
 module.exports = router;
