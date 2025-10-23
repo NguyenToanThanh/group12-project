@@ -4,7 +4,7 @@ const {
   deleteFromCloudinary,
 } = require("../utils/cloudinary");
 
-/* ========== AVATAR UPLOAD ========== */
+/* ========== HOẠT ĐỘNG 3: AVATAR UPLOAD ========== */
 
 // POST /users/avatar - Upload avatar
 exports.uploadAvatar = async (req, res) => {
