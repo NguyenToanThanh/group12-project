@@ -1,18 +1,32 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Group 12 Backend API - RBAC, Logging, Rate Limiting",
+  "description": "Group 12 Backend API - Activity 4: Password Reset, Avatar Upload, RBAC, Logging, Rate Limiting, Authentication",
   "main": "server.js",
   "type": "commonjs",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "seed:admin": "node makeAdmin.js",
     "build": "echo 'No build step required'"
   },
+  "keywords": [
+    "nodejs",
+    "express",
+    "mongodb",
+    "jwt",
+    "rbac",
+    "multer",
+    "sharp",
+    "cloudinary",
+    "avatar-upload",
+    "rate-limiting",
+    "password-reset",
+    "nodemailer",
+    "email"
+  ],
+  "author": "Group 12",
+  "license": "MIT",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
@@ -36,6 +50,10 @@
     "useragent": "^2.3.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }

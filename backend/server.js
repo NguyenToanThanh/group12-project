@@ -38,7 +38,8 @@ app.use(morgan("dev"));
 app.get("/", (req, res) => {
   res.json({
     ok: true,
-    message: "Activity 3: Avatar Upload + RBAC + Authentication",
+    message:
+      "Activity 4: Password Reset + Avatar Upload + RBAC + Authentication",
     time: new Date().toISOString(),
   });
 });
@@ -84,6 +85,7 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`📧 Email service: ${process.env.EMAIL_SERVICE || "SMTP"}`);
 });
 
 // Graceful shutdown

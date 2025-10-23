@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
@@ -32,6 +33,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+
     // ACTIVITY 3: Avatar fields
     avatar: {
       type: String, // URL của ảnh trên Cloudinary
@@ -40,6 +42,16 @@ const userSchema = new mongoose.Schema(
     avatarPublicId: {
       type: String, // Public ID để xóa ảnh trên Cloudinary
       default: null,
+    },
+
+    // ACTIVITY 4: Password reset fields
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
     },
   },
   {
@@ -58,5 +70,23 @@ userSchema.pre("save", async function (next) {
     next(err);
   }
 });
+
+// Method to generate password reset token
+userSchema.methods.createPasswordResetToken = function () {
+  // 1) Tạo token ngẫu nhiên (không mã hóa) để gửi qua email
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  // 2) Hash token và lưu vào DB (chỉ lưu bản hash để an toàn)
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // 3) Set hạn sử dụng (vd: 10 phút)
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+
+  // 4) Trả ra token thô để gửi email cho user
+  return resetToken;
+};
 
 module.exports = mongoose.model("User", userSchema);
