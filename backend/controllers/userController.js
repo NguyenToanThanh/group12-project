@@ -3,8 +3,9 @@ const jwt = require("jsonwebtoken");
 
 const User = require("../Models/User");
 const { signAccess, signRefresh } = require("../utils/jwt");
+const { deleteFromCloudinary } = require("../utils/cloudinary");
 
-/* ========== AUTH ========== */
+/* ========== HOẠT ĐỘNG 1: AUTHENTICATION ========== */
 
 // POST /auth/signup
 exports.signup = async (req, res) => {
@@ -52,6 +53,7 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         name: user.name,
+        avatar: user.avatar,
       },
       accessToken,
       refreshToken,
@@ -117,7 +119,7 @@ exports.logout = async (req, res) => {
   }
 };
 
-/* ========== PROFILE ========== */
+/* ========== PROFILE & USER INFO ========== */
 
 // GET /users/profile
 exports.getProfile = async (req, res) => {
@@ -127,6 +129,149 @@ exports.getProfile = async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("getProfile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ========== HOẠT ĐỘNG 2: USER MANAGEMENT (ADMIN/MODERATOR) ========== */
+
+// GET /users - Admin/Moderator xem tất cả users
+exports.getAllUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, role } = req.query;
+
+    // Build query filter
+    const filter = {};
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+    if (role && ["user", "moderator", "admin"].includes(role)) {
+      filter.role = role;
+    }
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const users = await User.find(filter)
+      .select("-password -refreshToken")
+      .limit(parseInt(limit))
+      .skip(skip)
+      .sort({ createdAt: -1 });
+
+    const total = await User.countDocuments(filter);
+
+    res.json({
+      users,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (err) {
+    console.error("getAllUsers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /users/:id - Admin/Moderator xem chi tiết 1 user
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select("-password -refreshToken");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("getUserById error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE /users/:id - Admin xóa user
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Không cho phép xóa chính mình
+    if (id === req.user.id) {
+      return res.status(400).json({ message: "Cannot delete yourself" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Không cho phép xóa admin khác (chỉ super admin mới xóa được)
+    if (user.role === "admin" && req.user.role === "admin") {
+      return res.status(403).json({ message: "Cannot delete another admin" });
+    }
+
+    // Delete avatar from Cloudinary if exists
+    if (user.avatarPublicId) {
+      try {
+        await deleteFromCloudinary(user.avatarPublicId);
+      } catch (err) {
+        console.error("Failed to delete avatar from Cloudinary:", err);
+      }
+    }
+
+    await User.findByIdAndDelete(id);
+
+    res.json({ message: "User deleted successfully", deletedUser: user.email });
+  } catch (err) {
+    console.error("deleteUser error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// PATCH /users/:id/role - Admin thay đổi role của user
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    // Validate role
+    if (!["user", "moderator", "admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    // Không cho phép tự thay đổi role của chính mình
+    if (id === req.user.id) {
+      return res.status(400).json({ message: "Cannot change your own role" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Lưu role cũ để log
+    const oldRole = user.role;
+
+    // Update role
+    user.role = role;
+    await user.save();
+
+    res.json({
+      message: "User role updated successfully",
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        oldRole,
+        newRole: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("updateUserRole error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
