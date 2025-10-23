@@ -1,50 +1,51 @@
 /**
- * Script tạo Admin User cho RBAC testing
- * Chạy: node makeAdmin.js
+ * Script to make a user an admin
+ * Usage: node makeAdmin.js <email>
+ * Example: node makeAdmin.js thanhtoa@gmail.com
  */
 
 const mongoose = require("mongoose");
 const User = require("./Models/User");
 require("dotenv").config();
 
-const createAdmin = async () => {
+const makeAdmin = async (email) => {
   try {
-    // Kết nối MongoDB
+    // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ MongoDB connected");
+    console.log("✅ Connected to MongoDB");
 
-    // Kiểm tra admin đã tồn tại chưa
-    const existingAdmin = await User.findOne({ email: "admin@example.com" });
-    if (existingAdmin) {
-      console.log("⚠️  Admin already exists:", existingAdmin.email);
-      console.log("Role:", existingAdmin.role);
-      process.exit(0);
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      console.error(`❌ User not found: ${email}`);
+      process.exit(1);
     }
 
-    // Tạo admin user mới
-    const admin = await User.create({
-      name: "Admin User",
-      email: "admin@example.com",
-      password: "admin123",
-      role: "admin",
-    });
+    // Update role to admin
+    user.role = "admin";
+    await user.save();
 
-    console.log("✅ Admin created successfully!");
-    console.log({
-      id: admin._id,
-      email: admin.email,
-      role: admin.role,
-    });
-
-    console.log("\n🔐 Thông tin đăng nhập:");
-    console.log("   Email: admin@example.com");
-    console.log("   Password: admin123");
+    console.log(`✅ User ${user.email} is now an ADMIN!`);
+    console.log(`   Name: ${user.name}`);
+    console.log(`   Role: ${user.role}`);
+    console.log(`   ID: ${user._id}`);
 
     process.exit(0);
-  } catch (err) {
-    console.error("❌ Error creating admin:", err.message);
+  } catch (error) {
+    console.error("❌ Error:", error.message);
     process.exit(1);
   }
 };
 
-createAdmin();
+// Get email from command line argument
+const email = process.argv[2];
+
+if (!email) {
+  console.error("❌ Please provide an email address");
+  console.log("Usage: node makeAdmin.js <email>");
+  console.log("Example: node makeAdmin.js thanhtoa@gmail.com");
+  process.exit(1);
+}
+
+makeAdmin(email);

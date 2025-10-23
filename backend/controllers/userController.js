@@ -1,25 +1,45 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-
 const User = require("../Models/User");
+const bcrypt = require("bcryptjs");
 const { signAccess, signRefresh } = require("../utils/jwt");
-const { deleteFromCloudinary } = require("../utils/cloudinary");
+const jwt = require("jsonwebtoken");
+const { logActivity, getClientIP } = require("../middlewares/activityLogger");
 
-/* ========== HOẠT ĐỘNG 1: AUTHENTICATION ========== */
+/* ========== AUTHENTICATION ========== */
 
 // POST /auth/signup
 exports.signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password)
+
+    if (!name || !email || !password) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
 
     const existed = await User.findOne({ email });
-    if (existed)
+    if (existed) {
       return res.status(400).json({ message: "Email already exists" });
+    }
 
     const user = await User.create({ name, email, password });
-    res.status(201).json({ id: user._id, email: user.email });
+
+    // Log signup activity
+    await logActivity(user._id, "signup", {
+      description: `New user registered: ${email}`,
+      req,
+    });
+
+    const accessToken = signAccess({ id: user._id, role: user.role });
+    const refreshToken = signRefresh({ id: user._id });
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.status(201).json({
+      ok: true,
+      user: { _id: user._id, name: user.name, email: user.email },
+      accessToken,
+      refreshToken,
+    });
   } catch (err) {
     console.error("signup error:", err);
     res.status(500).json({ message: "Server error" });
@@ -30,30 +50,107 @@ exports.signup = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password)
+
+    if (!email || !password) {
       return res.status(400).json({ message: "Missing email or password" });
+    }
 
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    // Find user and include password field
+    const user = await User.findOne({ email }).select("+password +lockUntil");
 
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
-    // Generate tokens
+    // Check if account is locked
+    if (user.isLocked) {
+      const lockTimeRemaining = Math.ceil(
+        (user.lockUntil - Date.now()) / 1000 / 60
+      );
+
+      // Log failed login due to lock
+      await logActivity(user._id, "failed_login", {
+        description: `Login attempt while account locked`,
+        status: "warning",
+        req,
+        metadata: { reason: "account_locked", lockTimeRemaining },
+      });
+
+      return res.status(423).json({
+        message: `Account is locked. Please try again in ${lockTimeRemaining} minutes.`,
+        locked: true,
+        retryAfter: lockTimeRemaining,
+      });
+    }
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      // Increment failed login attempts
+      await user.incLoginAttempts();
+
+      // Log failed login
+      await logActivity(user._id, "failed_login", {
+        description: `Failed login attempt for ${email}`,
+        status: "failure",
+        req,
+        metadata: {
+          attempts: user.loginAttempts + 1,
+          maxAttempts: 5,
+        },
+      });
+
+      // Check if account just got locked
+      if (user.loginAttempts + 1 >= 5) {
+        await logActivity(user._id, "account_locked", {
+          description: `Account locked after 5 failed login attempts`,
+          status: "warning",
+          req,
+        });
+
+        return res.status(423).json({
+          message:
+            "Too many failed login attempts. Account locked for 15 minutes.",
+          locked: true,
+          retryAfter: 15,
+        });
+      }
+
+      const attemptsLeft = 5 - (user.loginAttempts + 1);
+      return res.status(400).json({
+        message: "Invalid credentials",
+        attemptsLeft,
+      });
+    }
+
+    // Successful login - reset attempts
+    await user.resetLoginAttempts();
+
+    // Update last login info
+    user.lastLoginIP = getClientIP(req);
+    await user.save();
+
+    // Log successful login
+    await logActivity(user._id, "login", {
+      description: `User logged in successfully`,
+      req,
+    });
+
     const accessToken = signAccess({ id: user._id, role: user.role });
     const refreshToken = signRefresh({ id: user._id });
 
-    // Store refresh token in database
     user.refreshToken = refreshToken;
     await user.save();
 
     res.json({
+      ok: true,
       user: {
-        id: user._id,
+        _id: user._id,
+        name: user.name,
         email: user.email,
         role: user.role,
-        name: user.name,
-        avatar: user.avatar,
+        lastLogin: user.lastLogin,
       },
       accessToken,
       refreshToken,
@@ -68,35 +165,35 @@ exports.login = async (req, res) => {
 exports.refresh = async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    if (!refreshToken)
-      return res.status(400).json({ message: "Missing refreshToken" });
 
-    // Verify refresh token
-    let payload;
-    try {
-      payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    } catch {
-      return res
-        .status(401)
-        .json({ message: "Invalid or expired refresh token" });
+    if (!refreshToken) {
+      return res.status(400).json({ message: "Missing refresh token" });
     }
 
-    // Find user and check if refresh token matches
-    const user = await User.findById(payload.id);
-    if (!user || user.refreshToken !== refreshToken)
-      return res.status(401).json({ message: "Refresh token revoked" });
+    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-    // Generate new access token
-    const accessToken = signAccess({ id: user._id, role: user.role });
+    const user = await User.findById(payload.id).select("+refreshToken");
 
-    // Optionally rotate refresh token
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    const newAccessToken = signAccess({ id: user._id, role: user.role });
     const newRefreshToken = signRefresh({ id: user._id });
+
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    res.json({ accessToken, refreshToken: newRefreshToken });
+    res.json({
+      ok: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
   } catch (err) {
     console.error("refresh error:", err);
+    if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError") {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -105,173 +202,60 @@ exports.refresh = async (req, res) => {
 exports.logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    if (refreshToken) {
-      const user = await User.findOne({ refreshToken });
-      if (user) {
-        user.refreshToken = undefined; // revoke refresh token
-        await user.save();
-      }
+
+    if (!refreshToken) {
+      return res.status(400).json({ message: "Missing refresh token" });
     }
-    res.json({ message: "Logged out successfully" });
+
+    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+    const user = await User.findById(payload.id);
+
+    if (user) {
+      // Log logout activity
+      await logActivity(user._id, "logout", {
+        description: "User logged out",
+        req,
+      });
+
+      user.refreshToken = null;
+      await user.save();
+    }
+
+    res.json({ ok: true, message: "Logged out successfully" });
   } catch (err) {
     console.error("logout error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ========== PROFILE & USER INFO ========== */
-
-// GET /users/profile
-exports.getProfile = async (req, res) => {
+// GET /users/me
+exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
-  } catch (err) {
-    console.error("getProfile error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+    const user = await User.findById(req.user.id).select(
+      "-password -refreshToken"
+    );
 
-/* ========== HOẠT ĐỘNG 2: USER MANAGEMENT (ADMIN/MODERATOR) ========== */
-
-// GET /users - Admin/Moderator xem tất cả users
-exports.getAllUsers = async (req, res) => {
-  try {
-    const { page = 1, limit = 10, search, role } = req.query;
-
-    // Build query filter
-    const filter = {};
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ];
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
-    if (role && ["user", "moderator", "admin"].includes(role)) {
-      filter.role = role;
-    }
-
-    // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const users = await User.find(filter)
-      .select("-password -refreshToken")
-      .limit(parseInt(limit))
-      .skip(skip)
-      .sort({ createdAt: -1 });
-
-    const total = await User.countDocuments(filter);
 
     res.json({
-      users,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
-      },
-    });
-  } catch (err) {
-    console.error("getAllUsers error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// GET /users/:id - Admin/Moderator xem chi tiết 1 user
-exports.getUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const user = await User.findById(id).select("-password -refreshToken");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json(user);
-  } catch (err) {
-    console.error("getUserById error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// DELETE /users/:id - Admin xóa user
-exports.deleteUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Không cho phép xóa chính mình
-    if (id === req.user.id) {
-      return res.status(400).json({ message: "Cannot delete yourself" });
-    }
-
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Không cho phép xóa admin khác (chỉ super admin mới xóa được)
-    if (user.role === "admin" && req.user.role === "admin") {
-      return res.status(403).json({ message: "Cannot delete another admin" });
-    }
-
-    // Delete avatar from Cloudinary if exists
-    if (user.avatarPublicId) {
-      try {
-        await deleteFromCloudinary(user.avatarPublicId);
-      } catch (err) {
-        console.error("Failed to delete avatar from Cloudinary:", err);
-      }
-    }
-
-    await User.findByIdAndDelete(id);
-
-    res.json({ message: "User deleted successfully", deletedUser: user.email });
-  } catch (err) {
-    console.error("deleteUser error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// PATCH /users/:id/role - Admin thay đổi role của user
-exports.updateUserRole = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role } = req.body;
-
-    // Validate role
-    if (!["user", "moderator", "admin"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-
-    // Không cho phép tự thay đổi role của chính mình
-    if (id === req.user.id) {
-      return res.status(400).json({ message: "Cannot change your own role" });
-    }
-
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Lưu role cũ để log
-    const oldRole = user.role;
-
-    // Update role
-    user.role = role;
-    await user.save();
-
-    res.json({
-      message: "User role updated successfully",
+      ok: true,
       user: {
-        id: user._id,
-        email: user.email,
+        _id: user._id,
         name: user.name,
-        oldRole,
-        newRole: user.role,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        avatarPublicId: user.avatarPublicId,
+        lastLogin: user.lastLogin,
+        lastLoginIP: user.lastLoginIP,
+        createdAt: user.createdAt,
       },
     });
   } catch (err) {
-    console.error("updateUserRole error:", err);
+    console.error("getMe error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
