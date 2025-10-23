@@ -1,32 +1,45 @@
 const nodemailer = require("nodemailer");
 
-// Create transporter with Gmail SMTP
+/**
+ * Create email transporter
+ * Supports Gmail, Outlook, or custom SMTP
+ */
 const createTransporter = () => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+  // Check if using Gmail
+  if (process.env.EMAIL_SERVICE === "gmail") {
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD, // App Password, not regular password
+      },
+    });
+  }
+
+  // Custom SMTP configuration
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT || 587,
+    secure: process.env.SMTP_PORT === "465", // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS, // App password for Gmail
+      pass: process.env.SMTP_PASSWORD,
     },
   });
-  return transporter;
 };
 
 /**
  * Send password reset email
- * @param {string} to - Recipient email
- * @param {string} resetToken - Password reset token
- * @param {string} userName - User's name
+ * @param {Object} options - Email options
+ * @param {String} options.to - Recipient email
+ * @param {String} options.resetToken - Password reset token
+ * @param {String} options.userName - User's name
  */
-const sendPasswordResetEmail = async (to, resetToken, userName = "User") => {
+const sendPasswordResetEmail = async ({ to, resetToken, userName }) => {
   const transporter = createTransporter();
 
-  // Create reset URL
-  const resetURL = `${
-    process.env.CLIENT_URL || "http://localhost:3000"
-  }/reset-password/${resetToken}`;
+  // Reset URL (frontend URL)
+  const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
   // Email HTML template
   const htmlContent = `
@@ -34,86 +47,127 @@ const sendPasswordResetEmail = async (to, resetToken, userName = "User") => {
     <html>
     <head>
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
-        .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
-        .button { display: inline-block; padding: 12px 30px; background-color: #4CAF50; color: white; 
-                  text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        .warning { color: #d9534f; font-weight: bold; }
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #4CAF50;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          background-color: #f9f9f9;
+          padding: 30px;
+          border-radius: 0 0 5px 5px;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 30px;
+          background-color: #4CAF50;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .footer {
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 1px solid #ddd;
+          font-size: 12px;
+          color: #666;
+        }
+        .warning {
+          background-color: #fff3cd;
+          border-left: 4px solid #ffc107;
+          padding: 10px;
+          margin: 15px 0;
+        }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <h1>🔒 Reset Your Password</h1>
+          <h1>🔐 Password Reset Request</h1>
         </div>
         <div class="content">
           <p>Hi <strong>${userName}</strong>,</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
+          
+          <p>You requested to reset your password. Click the button below to create a new password:</p>
+          
           <center>
             <a href="${resetURL}" class="button">Reset Password</a>
           </center>
+          
           <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all; background: #fff; padding: 10px; border: 1px solid #ddd;">
-            ${resetURL}
-          </p>
-          <p class="warning">⚠️ This link will expire in 15 minutes.</p>
-          <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
-          <p>Best regards,<br>The Support Team</p>
-        </div>
-        <div class="footer">
-          <p>© 2025 Your Company. All rights reserved.</p>
-          <p>This is an automated email. Please do not reply.</p>
+          <p style="word-break: break-all; color: #0066cc;">${resetURL}</p>
+          
+          <div class="warning">
+            <strong>⚠️ Important:</strong>
+            <ul>
+              <li>This link will expire in <strong>10 minutes</strong></li>
+              <li>If you didn't request this, please ignore this email</li>
+              <li>Your password will remain unchanged until you access the link above</li>
+            </ul>
+          </div>
+          
+          <div class="footer">
+            <p>This is an automated email. Please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} Group 12 Project. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </body>
     </html>
   `;
 
-  // Plain text version
+  // Plain text version (fallback)
   const textContent = `
     Hi ${userName},
-    
-    We received a request to reset your password.
-    
+
+    You requested to reset your password.
+
     Click this link to reset your password:
     ${resetURL}
-    
-    This link will expire in 15 minutes.
-    
-    If you didn't request a password reset, please ignore this email.
-    
-    Best regards,
-    The Support Team
+
+    This link will expire in 10 minutes.
+
+    If you didn't request this, please ignore this email.
+
+    - Group 12 Project
   `;
 
   // Email options
   const mailOptions = {
-    from: `"Password Reset" <${process.env.SMTP_USER}>`,
+    from: `"${process.env.EMAIL_FROM_NAME || "Group 12 Project"}" <${process.env.EMAIL_USER}>`,
     to,
-    subject: "Password Reset Request",
+    subject: "Password Reset Request - Group 12 Project",
     text: textContent,
     html: htmlContent,
   };
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log("Password reset email sent:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    console.log("✅ Email sent:", info.messageId);
+    return info;
   } catch (error) {
-    console.error("Error sending email:", error);
-    throw new Error("Failed to send password reset email");
+    console.error("❌ Email error:", error);
+    throw new Error("Failed to send email");
   }
 };
 
 /**
- * Send password reset success confirmation email
- * @param {string} to - Recipient email
- * @param {string} userName - User's name
+ * Send password reset success notification
  */
-const sendPasswordResetSuccessEmail = async (to, userName = "User") => {
+const sendPasswordResetSuccessEmail = async ({ to, userName }) => {
   const transporter = createTransporter();
 
   const htmlContent = `
@@ -123,9 +177,9 @@ const sendPasswordResetSuccessEmail = async (to, userName = "User") => {
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
-        .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px; }
+        .success { background-color: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 15px 0; }
       </style>
     </head>
     <body>
@@ -135,13 +189,16 @@ const sendPasswordResetSuccessEmail = async (to, userName = "User") => {
         </div>
         <div class="content">
           <p>Hi <strong>${userName}</strong>,</p>
-          <p>Your password has been successfully reset.</p>
+          
+          <div class="success">
+            <p><strong>Your password has been successfully changed!</strong></p>
+          </div>
+          
           <p>You can now log in with your new password.</p>
-          <p>If you did not make this change, please contact our support team immediately.</p>
-          <p>Best regards,<br>The Support Team</p>
-        </div>
-        <div class="footer">
-          <p>© 2025 Your Company. All rights reserved.</p>
+          
+          <p>If you didn't make this change, please contact support immediately.</p>
+          
+          <p>Best regards,<br>Group 12 Team</p>
         </div>
       </div>
     </body>
@@ -149,20 +206,17 @@ const sendPasswordResetSuccessEmail = async (to, userName = "User") => {
   `;
 
   const mailOptions = {
-    from: `"Password Reset" <${process.env.SMTP_USER}>`,
+    from: `"${process.env.EMAIL_FROM_NAME || "Group 12 Project"}" <${process.env.EMAIL_USER}>`,
     to,
-    subject: "Password Reset Successful",
+    subject: "Password Reset Successful - Group 12 Project",
     html: htmlContent,
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Password reset success email sent:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    await transporter.sendMail(mailOptions);
+    console.log("✅ Success email sent to:", to);
   } catch (error) {
-    console.error("Error sending confirmation email:", error);
-    // Don't throw error - password was already reset successfully
-    return { success: false, error: error.message };
+    console.error("❌ Success email error:", error);
   }
 };
 

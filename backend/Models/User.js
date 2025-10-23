@@ -15,12 +15,14 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
+      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email"],
     },
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: 6,
-      select: false,
+      minlength: [6, "Password must be at least 6 characters"],
+      select: false, // Don't return password by default
     },
     role: {
       type: String,
@@ -31,7 +33,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
-    // Activity 3: Avatar upload
+
+    // ACTIVITY 3: Avatar fields
     avatar: {
       type: String, // URL của ảnh trên Cloudinary
       default: null,
@@ -40,7 +43,8 @@ const userSchema = new mongoose.Schema(
       type: String, // Public ID để xóa ảnh trên Cloudinary
       default: null,
     },
-    // Activity 4: Password reset fields
+
+    // ACTIVITY 4: Password reset fields
     resetPasswordToken: {
       type: String,
       select: false,
@@ -49,91 +53,39 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
-    // Activity 5: Login tracking & account lockout
-    loginAttempts: {
-      type: Number,
-      default: 0,
-    },
-    lockUntil: {
-      type: Date,
-      default: null,
-    },
-    lastLogin: {
-      type: Date,
-      default: null,
-    },
-    lastLoginIP: {
-      type: String,
-      default: null,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-// Virtual for checking if account is locked
-userSchema.virtual("isLocked").get(function () {
-  return !!(this.lockUntil && this.lockUntil > Date.now());
-});
-
 // Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
+
+  try {
+    this.password = await bcrypt.hash(this.password, 12);
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
-// Increment login attempts
-userSchema.methods.incLoginAttempts = function () {
-  // Reset attempts if lock has expired
-  if (this.lockUntil && this.lockUntil < Date.now()) {
-    return this.updateOne({
-      $set: { loginAttempts: 1 },
-      $unset: { lockUntil: 1 },
-    });
-  }
-
-  // Increment attempts
-  const updates = { $inc: { loginAttempts: 1 } };
-
-  // Lock account after 5 failed attempts for 15 minutes
-  const MAX_LOGIN_ATTEMPTS = 5;
-  const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
-
-  if (this.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS && !this.isLocked) {
-    updates.$set = { lockUntil: Date.now() + LOCK_TIME };
-  }
-
-  return this.updateOne(updates);
-};
-
-// Reset login attempts on successful login
-userSchema.methods.resetLoginAttempts = function () {
-  return this.updateOne({
-    $set: {
-      loginAttempts: 0,
-      lastLogin: new Date(),
-    },
-    $unset: { lockUntil: 1 },
-  });
-};
-
-// Activity 4: Generate password reset token
+// Method to generate password reset token
 userSchema.methods.createPasswordResetToken = function () {
-  // Generate random token
+  // 1) Tạo token ngẫu nhiên (không mã hóa) để gửi qua email
   const resetToken = crypto.randomBytes(32).toString("hex");
 
-  // Hash token and store in database
+  // 2) Hash token và lưu vào DB (chỉ lưu bản hash để an toàn)
   this.resetPasswordToken = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
 
-  // Set expiration (15 minutes from now)
-  this.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+  // 3) Set hạn sử dụng (vd: 10 phút)
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
 
-  // Return unhashed token (this will be sent in email)
+  // 4) Trả ra token thô để gửi email cho user
   return resetToken;
 };
 
