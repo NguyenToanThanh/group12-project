@@ -14,7 +14,13 @@ const app = express();
 
 /* ===== CORS: khớp CRA 3000 và cho phép cookie ===== */
 const corsOptions = {
-  origin: ["http://localhost:3000", "http://127.0.0.1:3000", null], // null cho phép file://
+  origin: [
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000",
+    "https://group12-project-i2eh.vercel.app", // Vercel frontend
+    /\.vercel\.app$/, // All Vercel domains
+    null
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -36,6 +42,15 @@ const upload = multer({ storage });
 /* ===== Parsers & static ===== */
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+/* ===== Root endpoint ===== */
+app.get("/", (req, res) => {
+  res.json({
+    message: "🚀 Group12 Backend API is running!",
+    status: "OK",
+    docs: "Visit /api for API documentation"
+  });
+});
 
 /* ===== Root API endpoint ===== */
 app.get("/api", (req, res) => {
@@ -369,14 +384,18 @@ app.get("/api/activity-logs", (req, res) => {
 
 /* ===== Server ===== */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "127.0.0.1", () => {
-  console.log(`Server running on http://127.0.0.1:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
   console.log("Routes available:");
+  console.log("- GET       /api (API info)");
   console.log("- GET/PUT   /api/profile");
-  console.log("- POST      /api/login, /api/signup (demo)");
+  console.log("- POST      /api/login, /api/signup");
+  console.log("- POST      /api/auth/refresh");
+  console.log("- POST      /api/logout");
   console.log("- GET       /api/users");
   console.log("- DELETE    /api/users/:id");
   console.log("- POST      /api/forgot-password");
   console.log("- POST      /api/reset-password");
   console.log("- POST      /api/upload-avatar");
+  console.log("- GET       /api/admin/logs");
 });
