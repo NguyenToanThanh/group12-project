@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const { loginLimiter } = require("../middlewares/rateLimit");
 
+const { authLimiter } = require("../middlewares/rateLimit");
 const {
   signup,
   login,
@@ -8,8 +8,9 @@ const {
   logout,
 } = require("../controllers/userController");
 
-router.post("/signup", signup);
-router.post("/login", loginLimiter, login); // Apply rate limiting to login
+// Authentication routes with rate limiting
+router.post("/signup", authLimiter, signup);
+router.post("/login", authLimiter, login);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 

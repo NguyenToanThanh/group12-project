@@ -2,18 +2,28 @@ const router = require("express").Router();
 
 const auth = require("../middlewares/auth");
 const checkRole = require("../middlewares/checkRole");
+const { upload, resizeImage } = require("../middlewares/upload");
+const { uploadLimiter } = require("../middlewares/rateLimit");
 const {
   getProfile,
   getAllUsers,
+  getUserById,
   deleteUser,
   updateUserRole,
-  getUserById,
 } = require("../controllers/userController");
+const {
+  uploadAvatar,
+  deleteAvatar,
+  getMe,
+} = require("../controllers/avatarController");
 
-/* ========== HOẠT ĐỘNG 1: PROTECTED ROUTES ========== */
+/* ========== HOẠT ĐỘNG 1: PROFILE ========== */
 
 // GET /users/profile - User xem profile của chính mình
 router.get("/profile", auth, getProfile);
+
+// GET /users/me - Get current user with avatar
+router.get("/me", auth, getMe);
 
 /* ========== HOẠT ĐỘNG 2: RBAC - USER MANAGEMENT ========== */
 
@@ -29,5 +39,20 @@ router.delete("/:id", auth, checkRole("admin"), deleteUser);
 
 // PATCH /users/:id/role - Chỉ Admin mới thay đổi role
 router.patch("/:id/role", auth, checkRole("admin"), updateUserRole);
+
+/* ========== HOẠT ĐỘNG 3: UPLOAD AVATAR ========== */
+
+// POST /users/avatar - User upload avatar của chính mình
+router.post(
+  "/avatar",
+  auth,
+  uploadLimiter,
+  upload.single("avatar"),
+  resizeImage,
+  uploadAvatar
+);
+
+// DELETE /users/avatar - User xóa avatar của chính mình
+router.delete("/avatar", auth, deleteAvatar);
 
 module.exports = router;

@@ -3,8 +3,9 @@ const jwt = require("jsonwebtoken");
 
 const User = require("../Models/User");
 const { signAccess, signRefresh } = require("../utils/jwt");
+const { deleteFromCloudinary } = require("../utils/cloudinary");
 
-/* ========== AUTH ========== */
+/* ========== HOẠT ĐỘNG 1: AUTHENTICATION ========== */
 
 // POST /auth/signup
 exports.signup = async (req, res) => {
@@ -52,6 +53,7 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         name: user.name,
+        avatar: user.avatar,
       },
       accessToken,
       refreshToken,
@@ -117,7 +119,7 @@ exports.logout = async (req, res) => {
   }
 };
 
-/* ========== PROFILE ========== */
+/* ========== PROFILE & USER INFO ========== */
 
 // GET /users/profile
 exports.getProfile = async (req, res) => {
@@ -175,6 +177,23 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// GET /users/:id - Admin/Moderator xem chi tiết 1 user
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select("-password -refreshToken");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("getUserById error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // DELETE /users/:id - Admin xóa user
 exports.deleteUser = async (req, res) => {
   try {
@@ -193,6 +212,15 @@ exports.deleteUser = async (req, res) => {
     // Không cho phép xóa admin khác (chỉ super admin mới xóa được)
     if (user.role === "admin" && req.user.role === "admin") {
       return res.status(403).json({ message: "Cannot delete another admin" });
+    }
+
+    // Delete avatar from Cloudinary if exists
+    if (user.avatarPublicId) {
+      try {
+        await deleteFromCloudinary(user.avatarPublicId);
+      } catch (err) {
+        console.error("Failed to delete avatar from Cloudinary:", err);
+      }
     }
 
     await User.findByIdAndDelete(id);
@@ -244,23 +272,6 @@ exports.updateUserRole = async (req, res) => {
     });
   } catch (err) {
     console.error("updateUserRole error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// GET /users/:id - Admin/Moderator xem chi tiết 1 user
-exports.getUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const user = await User.findById(id).select("-password -refreshToken");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json(user);
-  } catch (err) {
-    console.error("getUserById error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

@@ -5,7 +5,7 @@ const {
 } = require("../utils/cloudinary");
 const { logActivity } = require("../middlewares/activityLogger");
 
-/* ========== AVATAR UPLOAD ========== */
+/* ========== HOẠT ĐỘNG 3: AVATAR UPLOAD ========== */
 
 // POST /users/avatar - Upload avatar
 exports.uploadAvatar = async (req, res) => {
