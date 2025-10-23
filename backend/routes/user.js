@@ -1,35 +1,33 @@
-// routes/user.js
 const router = require("express").Router();
 
 const auth = require("../middlewares/auth");
 const checkRole = require("../middlewares/checkRole");
-const upload = require("../middlewares/upload");
-
 const {
   getProfile,
-  updateProfile,
-  uploadAvatar,
-  deleteAvatar,
-  getUsers,
+  getAllUsers,
   deleteUser,
   updateUserRole,
-  getLogs,
+  getUserById,
 } = require("../controllers/userController");
 
-// Profile
+/* ========== HOẠT ĐỘNG 1: PROTECTED ROUTES ========== */
+
+// GET /users/profile - User xem profile của chính mình
 router.get("/profile", auth, getProfile);
-router.put("/profile", auth, updateProfile);
 
-// Avatar
-router.post("/upload-avatar", auth, upload.single("file"), uploadAvatar);
-router.delete("/avatar", auth, deleteAvatar);
+/* ========== HOẠT ĐỘNG 2: RBAC - USER MANAGEMENT ========== */
 
-// Admin
-router.get("/users", auth, checkRole("admin"), getUsers);
-router.delete("/users/:id", auth, checkRole("admin"), deleteUser);
-router.put("/users/:id/role", auth, checkRole("admin"), updateUserRole);
+// GET /users - Admin/Moderator xem tất cả users
+// Query params: ?page=1&limit=10&search=john&role=admin
+router.get("/", auth, checkRole("admin", "moderator"), getAllUsers);
 
-// Logs (Debug)
-router.get("/logs", auth, checkRole("admin"), getLogs);
+// GET /users/:id - Admin/Moderator xem chi tiết 1 user
+router.get("/:id", auth, checkRole("admin", "moderator"), getUserById);
+
+// DELETE /users/:id - Chỉ Admin mới xóa được user
+router.delete("/:id", auth, checkRole("admin"), deleteUser);
+
+// PATCH /users/:id/role - Chỉ Admin mới thay đổi role
+router.patch("/:id/role", auth, checkRole("admin"), updateUserRole);
 
 module.exports = router;
