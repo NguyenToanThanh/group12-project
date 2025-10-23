@@ -1,12 +1,14 @@
 {
-  "name": "activity4-password-reset",
+  "name": "backend",
   "version": "1.0.0",
-  "description": "Activity 4: Password Reset with Real Email + Avatar Upload + RBAC + Authentication",
+  "description": "Group 12 Backend API - Activity 4: Password Reset, Avatar Upload, RBAC, Logging, Rate Limiting, Authentication",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed:admin": "node makeAdmin.js"
+    "start": "node server.js",
+    "seed:admin": "node makeAdmin.js",
+    "build": "echo 'No build step required'"
   },
   "keywords": [
     "nodejs",
@@ -26,24 +28,32 @@
   "author": "Group 12",
   "license": "MIT",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
-    "cloudinary": "^1.41.0",
+    "cloudinary": "^1.41.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
+    "crypto": "^1.0.1",
+    "dayjs": "^1.11.18",
+    "dotenv": "^16.6.1",
     "express": "^5.1.0",
-    "express-rate-limit": "^7.1.5",
-    "helmet": "^7.1.0",
+    "express-rate-limit": "^8.1.0",
+    "express-slow-down": "^3.0.0",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.1",
     "morgan": "^1.10.1",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.7",
-    "sharp": "^0.33.1"
+    "multer-storage-cloudinary": "^4.0.0",
+    "nodemailer": "^7.0.9",
+    "sharp": "^0.34.4",
+    "useragent": "^2.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }

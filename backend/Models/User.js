@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
-      select: false,
+      select: false, // Don't return password by default
     },
     role: {
       type: String,
@@ -33,15 +33,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+
     // ACTIVITY 3: Avatar fields
     avatar: {
-      type: String,
+      type: String, // URL của ảnh trên Cloudinary
       default: null,
     },
     avatarPublicId: {
-      type: String,
+      type: String, // Public ID để xóa ảnh trên Cloudinary
       default: null,
     },
+
     // ACTIVITY 4: Password reset fields
     resetPasswordToken: {
       type: String,
@@ -71,19 +73,19 @@ userSchema.pre("save", async function (next) {
 
 // Method to generate password reset token
 userSchema.methods.createPasswordResetToken = function () {
-  // Generate random token
+  // 1) Tạo token ngẫu nhiên (không mã hóa) để gửi qua email
   const resetToken = crypto.randomBytes(32).toString("hex");
 
-  // Hash token and save to database
+  // 2) Hash token và lưu vào DB (chỉ lưu bản hash để an toàn)
   this.resetPasswordToken = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
 
-  // Set expiration (10 minutes)
+  // 3) Set hạn sử dụng (vd: 10 phút)
   this.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
 
-  // Return unhashed token (to send via email)
+  // 4) Trả ra token thô để gửi email cho user
   return resetToken;
 };
 

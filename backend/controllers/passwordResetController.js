@@ -4,6 +4,7 @@ const {
   sendPasswordResetEmail,
   sendPasswordResetSuccessEmail,
 } = require("../utils/mailer");
+const { logActivity } = require("../middlewares/activityLogger");
 
 /**
  * @route   POST /auth/forgot-password
@@ -40,15 +41,26 @@ const forgotPassword = async (req, res) => {
 
     try {
       // Send email
+      console.log("Attempting to send email to:", user.email);
+      console.log("Reset token:", resetToken);
       await sendPasswordResetEmail({
         to: user.email,
         resetToken,
         userName: user.name,
       });
 
+      // Log activity
+      await logActivity(user._id, "password_reset_request", {
+        description: `Password reset requested for ${user.email}`,
+        status: "success",
+        req,
+      });
+
       res.status(200).json({
         success: true,
         message: "Password reset email sent successfully",
+        // For development/testing only - remove in production
+        ...(process.env.NODE_ENV === "development" && { resetToken }),
       });
     } catch (error) {
       // If email fails, clear reset token
@@ -56,7 +68,16 @@ const forgotPassword = async (req, res) => {
       user.resetPasswordExpires = undefined;
       await user.save({ validateBeforeSave: false });
 
+      // Log failed activity
+      await logActivity(user._id, "password_reset_request", {
+        description: "Failed to send password reset email",
+        status: "failure",
+        metadata: { error: error.message },
+        req,
+      });
+
       console.error("Email sending error:", error);
+      console.error("Full error details:", error);
       return res.status(500).json({
         success: false,
         message: "Error sending email. Please try again later.",
@@ -118,6 +139,13 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     user.refreshToken = undefined; // Invalidate old refresh tokens
     await user.save();
+
+    // Log activity
+    await logActivity(user._id, "password_reset_success", {
+      description: `Password reset completed for ${user.email}`,
+      status: "success",
+      req,
+    });
 
     // Send success notification email (optional, non-blocking)
     sendPasswordResetSuccessEmail({

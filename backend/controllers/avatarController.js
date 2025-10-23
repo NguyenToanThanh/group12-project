@@ -3,8 +3,18 @@ const {
   uploadToCloudinary,
   deleteFromCloudinary,
 } = require("../utils/cloudinary");
+const { logActivity } = require("../middlewares/activityLogger");
 
 /* ========== HOẠT ĐỘNG 3: AVATAR UPLOAD ========== */
+
+// Helper: log an activity nhưng không để lỗi logging crash request
+async function safeLog(userId, action, payload) {
+  try {
+    await logActivity(userId, action, payload);
+  } catch (e) {
+    console.error("safeLog error:", e);
+  }
+}
 
 // POST /users/avatar - Upload avatar
 exports.uploadAvatar = async (req, res) => {
@@ -40,7 +50,15 @@ exports.uploadAvatar = async (req, res) => {
     user.avatarPublicId = result.public_id;
     await user.save();
 
-    res.json({
+    // Log activity (success)
+    await safeLog(userId, "avatar_upload", {
+      description: "User uploaded new avatar",
+      status: "success",
+      metadata: { publicId: result.public_id },
+      req,
+    });
+
+    return res.json({
       message: "Avatar uploaded successfully",
       avatar: {
         url: user.avatar,
@@ -49,7 +67,16 @@ exports.uploadAvatar = async (req, res) => {
     });
   } catch (error) {
     console.error("Avatar upload error:", error);
-    res.status(500).json({
+
+    // Log failed activity (best-effort)
+    await safeLog(req?.user?.id, "avatar_upload", {
+      description: "Failed to upload avatar",
+      status: "failed",
+      metadata: { error: error.message },
+      req,
+    });
+
+    return res.status(500).json({
       message: "Failed to upload avatar",
       error: error.message,
     });
@@ -72,6 +99,8 @@ exports.deleteAvatar = async (req, res) => {
       return res.status(404).json({ message: "No avatar to delete" });
     }
 
+    const oldPublicId = user.avatarPublicId;
+
     // Delete from Cloudinary
     try {
       await deleteFromCloudinary(user.avatarPublicId);
@@ -85,10 +114,27 @@ exports.deleteAvatar = async (req, res) => {
     user.avatarPublicId = null;
     await user.save();
 
-    res.json({ message: "Avatar deleted successfully" });
+    // Log activity (success)
+    await safeLog(userId, "profile_update", {
+      description: "User deleted avatar",
+      status: "success",
+      metadata: { deletedPublicId: oldPublicId },
+      req,
+    });
+
+    return res.json({ message: "Avatar deleted successfully" });
   } catch (error) {
     console.error("Avatar delete error:", error);
-    res.status(500).json({
+
+    // Log failed activity
+    await safeLog(req?.user?.id, "profile_update", {
+      description: "Failed to delete avatar",
+      status: "failed",
+      metadata: { error: error.message },
+      req,
+    });
+
+    return res.status(500).json({
       message: "Failed to delete avatar",
       error: error.message,
     });
@@ -105,9 +151,9 @@ exports.getMe = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user);
+    return res.json(user);
   } catch (error) {
     console.error("Get user error:", error);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };

@@ -147,9 +147,7 @@ const sendPasswordResetEmail = async ({ to, resetToken, userName }) => {
 
   // Email options
   const mailOptions = {
-    from: `"${process.env.EMAIL_FROM_NAME || "Group 12 Project"}" <${
-      process.env.EMAIL_USER
-    }>`,
+    from: `"${process.env.EMAIL_FROM_NAME || "Group 12 Project"}" <${process.env.EMAIL_USER}>`,
     to,
     subject: "Password Reset Request - Group 12 Project",
     text: textContent,
@@ -208,9 +206,7 @@ const sendPasswordResetSuccessEmail = async ({ to, userName }) => {
   `;
 
   const mailOptions = {
-    from: `"${process.env.EMAIL_FROM_NAME || "Group 12 Project"}" <${
-      process.env.EMAIL_USER
-    }>`,
+    from: `"${process.env.EMAIL_FROM_NAME || "Group 12 Project"}" <${process.env.EMAIL_USER}>`,
     to,
     subject: "Password Reset Successful - Group 12 Project",
     html: htmlContent,
