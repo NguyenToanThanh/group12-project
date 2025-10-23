@@ -1,5 +1,6 @@
 /**
  * Middleware to check user role
+ * Usage: checkRole('admin') or checkRole('admin', 'moderator')
  * @param {...String} allowedRoles - Roles that are allowed to access the route
  * @returns {Function} - Express middleware
  */

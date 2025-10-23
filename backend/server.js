@@ -20,11 +20,13 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // Body parser
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
@@ -37,6 +39,13 @@ app.get("/", (req, res) => {
   res.json({
     ok: true,
     message: "Activity 3: Avatar Upload + RBAC + Authentication",
+    time: new Date().toISOString(),
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
     time: new Date().toISOString(),
   });
 });
@@ -61,7 +70,7 @@ app.use((err, req, res, next) => {
 /* ========== DATABASE CONNECTION ========== */
 
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.MONGODB_URI, { autoIndex: true })
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err);

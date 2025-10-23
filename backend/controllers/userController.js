@@ -209,7 +209,7 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Không cho phép xóa admin khác
+    // Không cho phép xóa admin khác (chỉ super admin mới xóa được)
     if (user.role === "admin" && req.user.role === "admin") {
       return res.status(403).json({ message: "Cannot delete another admin" });
     }
