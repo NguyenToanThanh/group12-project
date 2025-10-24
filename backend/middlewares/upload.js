@@ -4,20 +4,20 @@ const sharp = require("sharp");
 // Configure multer to store files in memory
 const storage = multer.memoryStorage();
 
-// File filter - only accept images
+// File filter - only accept specific image types
 const fileFilter = (req, file, cb) => {
-  // Accept only image files
-  if (file.mimetype.startsWith("image/")) {
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
+  if (allowed.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only image files are allowed!"), false);
+    cb(new Error("Only JPG, PNG, and WEBP image files are allowed!"), false);
   }
 };
 
 // Multer upload configuration
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -29,9 +29,7 @@ const upload = multer({
  */
 const resizeImage = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return next();
-    }
+    if (!req.file) return next();
 
     // Resize image to 256x256 using Sharp
     const resizedBuffer = await sharp(req.file.buffer)
