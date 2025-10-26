@@ -1,8 +1,32 @@
+# Dependencies
+node_modules/
 backend/node_modules/
 frontend/node_modules/
+
+# Environment variables
+.env
+.env.local
 backend/.env
 frontend/.env
-backend/node_modules/
-frontend/node_modules/
-backend/.env
-frontend/.env
+
+# Uploads (images uploaded to Cloudinary)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Test files
+**/test*.js
+**/demo*.txt
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo

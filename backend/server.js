@@ -26,8 +26,13 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
+console.log("🔄 Connecting to MongoDB...");
+
 mongoose
-  .connect(MONGO_URI)
+  .connect(MONGO_URI, {
+    serverSelectionTimeoutMS: 5000, // Timeout sau 5 giây
+    socketTimeoutMS: 45000,
+  })
   .then(() => {
     console.log("✅ MongoDB connected");
 
@@ -50,6 +55,8 @@ mongoose
     app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   })
   .catch((err) => {
-    console.error("MongoDB connection error:", err);
+    console.error("❌ MongoDB connection error:", err.message);
+    console.error("Connection string:", MONGO_URI ? "EXISTS" : "MISSING");
+    console.error("Full error:", err);
     process.exit(1);
   });
