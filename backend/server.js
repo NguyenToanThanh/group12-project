@@ -26,37 +26,40 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
-console.log("🔄 Connecting to MongoDB...");
+// ===== ROUTES (Đăng ký TRƯỚC khi connect MongoDB) =====
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/users", require("./routes/user"));
 
-mongoose
-  .connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 5000, // Timeout sau 5 giây
-    socketTimeoutMS: 45000,
-  })
-  .then(() => {
-    console.log("✅ MongoDB connected");
-
-    // ===== ROUTES =====
-    app.use("/api/auth", require("./routes/auth"));
-    app.use("/api/users", require("./routes/user"));
-
-    // Health check endpoint for Render
-    app.get("/health", (_req, res) => {
-      res.status(200).json({
-        status: "ok",
-        message: "Server is running",
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    app.get("/", (_req, res) => res.send("User Management API"));
-
-    const PORT = process.env.PORT || 4000;
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
-    console.error("Connection string:", MONGO_URI ? "EXISTS" : "MISSING");
-    console.error("Full error:", err);
-    process.exit(1);
+// Health check endpoint for Render
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+    mongodb:
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected",
   });
+});
+
+app.get("/", (_req, res) => res.send("User Management API"));
+
+// ===== START SERVER =====
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("🔄 Connecting to MongoDB...");
+
+  // Kết nối MongoDB KHÔNG CHẶN server startup
+  mongoose
+    .connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    })
+    .then(() => {
+      console.log("✅ MongoDB connected");
+    })
+    .catch((err) => {
+      console.error("❌ MongoDB connection error:", err.message);
+      console.error("⚠️ Server vẫn chạy nhưng không có database!");
+    });
+});
