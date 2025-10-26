@@ -1,31 +1,63 @@
-const router = require("express").Router();
-const verifyToken = require("../middlewares/auth");
-const { getMe } = require("../controllers/userController");
+const express = require("express");
+const router = express.Router();
+
+const { auth, adminOnly, checkRole } = require("../middlewares/auth");
+const upload = require("../middlewares/upload");
 const {
-  getMyActivities,
-  getMyActivitySummary,
-} = require("../controllers/activityController");
-const {
+  getProfile,
+  updateProfile,
   uploadAvatar,
   deleteAvatar,
-} = require("../controllers/avatarController");
-const { upload, resizeImage } = require("../middlewares/upload");
+  getUsers,
+  deleteUser,
+  updateUserRole,
+  createUser,
+  getLogs,
+  getMyLogs,
+} = require("../controllers/userController");
 
-// User routes
-router.get("/me", verifyToken, getMe);
+// ======================
+// Profile cá nhân
+// ======================
+router.get("/profile", auth, getProfile);
+router.put("/profile", auth, updateProfile);
 
-// Activity 3: Avatar upload routes
-router.post(
-  "/avatar",
-  verifyToken,
-  upload.single("avatar"),
-  resizeImage,
-  uploadAvatar
-);
-router.delete("/avatar", verifyToken, deleteAvatar);
+// ======================
+// Upload / xóa avatar
+// ======================
+router.post("/upload-avatar", auth, upload.single("file"), uploadAvatar);
+router.delete("/avatar", auth, deleteAvatar);
 
-// Activity 5: Activity routes for current user
-router.get("/me/activities", verifyToken, getMyActivities);
-router.get("/me/activities/summary", verifyToken, getMyActivitySummary);
+// ======================
+// Activity Logs
+// ======================
+// Xem logs của chính mình
+router.get("/logs/me", auth, getMyLogs);
+
+// Xem tất cả logs (Admin only)
+router.get("/logs", auth, adminOnly, getLogs);
+
+// ======================
+// Quản lý user (Admin/Moderator)
+// ======================
+
+// Xem tất cả user — admin/moderator
+router.get("/", auth, checkRole("admin", "moderator"), getUsers);
+
+// Xóa user theo ID — chỉ admin
+router.delete("/:id", auth, adminOnly, deleteUser);
+
+// Cập nhật role user — chỉ admin
+router.put("/:id/role", auth, adminOnly, updateUserRole);
+
+// Thêm user mới (ví dụ thêm dữ liệu mẫu)
+router.post("/", auth, adminOnly, createUser);
+
+// ======================
+// Route kiểm tra nhanh (tuỳ chọn cho test)
+// ======================
+router.get("/check", (_req, res) => {
+  res.send("✅ User routes hoạt động bình thường");
+});
 
 module.exports = router;

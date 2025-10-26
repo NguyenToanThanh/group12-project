@@ -1,59 +1,37 @@
 const multer = require("multer");
-const sharp = require("sharp");
+const path = require("path");
+const fs = require("fs");
 
-// Configure multer to store files in memory
-const storage = multer.memoryStorage();
+// Tạo thư mục uploads nếu chưa có
+const uploadDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("📁 Thư mục uploads đã được tạo!");
+} else {
+  console.log("✅ Thư mục uploads đã tồn tại.");
+}
 
-// File filter - only accept images
-const fileFilter = (req, file, cb) => {
-  // Accept only image files
-  if (file.mimetype.startsWith("image/")) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files are allowed!"), false);
-  }
-};
-
-// Multer upload configuration
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
   },
 });
 
-/**
- * Middleware to resize image using Sharp
- * This should be used after multer upload middleware
- */
-const resizeImage = async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return next();
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mime = allowed.test(file.mimetype);
+    if (ext && mime) {
+      cb(null, true);
+    } else {
+      cb(new Error("Chỉ chấp nhận file ảnh (.jpg, .jpeg, .png, .gif)!"));
     }
+  },
+});
 
-    // Resize image to 256x256 using Sharp
-    const resizedBuffer = await sharp(req.file.buffer)
-      .resize(256, 256, {
-        fit: "cover",
-        position: "center",
-      })
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    // Replace original buffer with resized buffer
-    req.file.buffer = resizedBuffer;
-    req.file.size = resizedBuffer.length;
-
-    next();
-  } catch (error) {
-    console.error("Image resize error:", error);
-    res.status(400).json({ message: "Failed to process image" });
-  }
-};
-
-module.exports = {
-  upload,
-  resizeImage,
-};
+module.exports = upload;

@@ -1,33 +1,30 @@
-const router = require("express").Router();
-const {
-  loginLimiter,
-  signupLimiter,
-  signupSpeedLimiter,
-  passwordResetLimiter,
-} = require("../middlewares/rateLimit");
-
+const express = require("express");
+const router = express.Router();
 const {
   signup,
   login,
-  refresh,
   logout,
-} = require("../controllers/userController");
-
-const {
+  refreshToken,
   forgotPassword,
   resetPassword,
-  verifyResetToken,
-} = require("../controllers/passwordResetController");
+} = require("../controllers/userController");
 
-// Authentication routes with rate limiting
-router.post("/signup", signupLimiter, signupSpeedLimiter, signup);
+const { loginLimiter } = require("../middlewares/rateLimit");
+
+// Đăng ký
+router.post("/signup", signup);
+
+// Đăng nhập (giới hạn 5 lần/phút)
 router.post("/login", loginLimiter, login);
-router.post("/refresh", refresh);
+
+// Làm mới access token
+router.post("/refresh", refreshToken);
+
+// Đăng xuất
 router.post("/logout", logout);
 
-// Activity 4: Password reset routes
-router.post("/forgot-password", passwordResetLimiter, forgotPassword);
+// Quên mật khẩu & đặt lại mật khẩu
+router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
-router.get("/verify-reset-token/:token", verifyResetToken);
 
 module.exports = router;

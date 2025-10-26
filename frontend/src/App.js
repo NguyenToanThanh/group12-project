@@ -1,97 +1,71 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import store from './redux/store';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Signup from './pages/Signup';
-import Login from './pages/Login';
-import Home from './pages/Home';
-import Profile from './pages/profile/Profile';
-import ForgotPassword from './pages/Auth/ForgotPassword';
-import ResetPassword from './pages/Auth/ResetPassword';
-import UploadAvatar from './pages/profile/UploadAvatar';
-import ModeratorTools from './pages/moderator/ModeratorTools';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import ActivityLogs from './pages/admin/ActivityLogs';
-import ProtectedRoute from './components/ProtectedRoute';
+import React, { useEffect, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import api from "./api";
+import LoginPage from "./pages/LoginPage";
 
-function Nav() {
-  const { isAuthenticated, logout } = useAuth();
+function HomePage() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        const res = await api.get("/users/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUser(res.data);
+      } catch (error) {
+        console.error("Lỗi khi tải profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  if (loading) return <h2>Đang tải...</h2>;
+  if (!user)
+    return (
+      <div style={{ textAlign: "center", marginTop: "50px" }}>
+        <h2>Vui lòng đăng nhập để xem thông tin.</h2>
+        <Link to="/login">👉 Đăng nhập tại đây</Link>
+      </div>
+    );
+
   return (
-    <nav style={{ display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #ccc' }}>
-      <Link to="/">Home</Link>
-      <Link to="/signup">Sign Up</Link>
-      <Link to="/login">Login</Link>
-      <Link to="/profile">Profile</Link>
-      <Link to="/dashboard">Dashboard</Link>
-      {isAuthenticated && <button onClick={logout}>Logout</button>}
-    </nav>
+    <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <h1>Thông tin người dùng</h1>
+      <p><strong>Tên:</strong> {user.name}</p>
+      <p><strong>Email:</strong> {user.email}</p>
+      <p><strong>Vai trò:</strong> {user.role}</p>
+      <button
+        onClick={() => {
+          localStorage.clear();
+          window.location.reload();
+        }}
+      >
+        Đăng xuất
+      </button>
+    </div>
   );
 }
 
-export default function App() {
+function App() {
   return (
-    <Provider store={store}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Nav />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/upload-avatar"
-              element={
-                <ProtectedRoute>
-                  <UploadAvatar />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Home />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/moderator"
-              element={
-                <ProtectedRoute allowedRoles={["moderator", "admin"]}>
-                  <ModeratorTools />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/logs"
-              element={
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <ActivityLogs />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </Provider>
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+      </Routes>
+    </Router>
   );
 }
+
+export default App;

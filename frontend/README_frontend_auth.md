@@ -1,1 +1,0 @@
-# Frontend Auth page skeleton
